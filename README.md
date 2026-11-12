@@ -62,7 +62,14 @@ build.bat
 
 Use `build.bat notest` to skip tests during packaging.
 
-GitHub Actions also builds and tests the project on pushes and pull requests to `main` or `master`. Run the **Build** workflow manually with `workflow_dispatch` to produce downloadable `KioskWin-win-x64` artifacts.
+GitHub Actions builds and tests the project on pushes and pull requests to `main` or `master`. Pushing a tag also creates a GitHub release containing `KioskWin-win-x64.zip` after the build and tests succeed:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+In the **Build** workflow's **Run workflow** form, leave `release_tag` empty for a build-only run, or enter an existing remote tag to build that tag and create its release. The release step fails if the tag does not exist or a release already exists. The workflow must first be pushed to the repository's default branch before it appears in the Actions tab. Repository Actions settings must allow the workflow to write contents for release creation.
 
 ## Deployment
 

@@ -3,9 +3,15 @@ name: Build
 on:
   push:
     branches: [main, master]
+    tags: ['*']
   pull_request:
     branches: [main, master]
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing tag to build and publish as a release (leave empty for a build only)
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -17,6 +23,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_tag && format('refs/tags/{0}', inputs.release_tag) || github.ref }}
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
@@ -52,3 +60,24 @@ jobs:
             KioskWin-win-x64.zip
           if-no-files-found: error
           retention-days: 14
+
+  release:
+    if: github.ref_type == 'tag' && github.event_name == 'push' || github.event_name == 'workflow_dispatch' && inputs.release_tag != ''
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: KioskWin-win-x64
+          path: artifacts
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
+        run: gh release create "$RELEASE_TAG" artifacts/KioskWin-win-x64.zip --verify-tag --generate-notes

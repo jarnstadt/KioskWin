@@ -9,6 +9,7 @@ public enum AdminAction
     None,
     Exit,
     Reload,
+    ClearCacheAndReload,
     DevTools,
     Unlock,
 }
@@ -22,6 +23,7 @@ public sealed class AdminDialog : Form
     private readonly Button _verifyButton;
     private readonly Button _exitButton;
     private readonly Button _reloadButton;
+    private readonly Button _clearCacheButton;
     private readonly Button _devToolsButton;
     private readonly Button _unlockButton;
 
@@ -37,11 +39,12 @@ public sealed class AdminDialog : Form
         StartPosition = FormStartPosition.CenterParent;
         MaximizeBox = false;
         MinimizeBox = false;
-        ClientSize = new Size(360, 300);
+        ClientSize = new Size(360, 345);
 
+        bool hasPassword = KioskUnlockPolicy.HasConfiguredAdminPassword(config);
         var lbl = new Label
         {
-            Text = "Admin password:",
+            Text = hasPassword ? "Admin password:" : "No admin password configured.",
             Location = new Point(20, 25),
             AutoSize = true,
         };
@@ -51,20 +54,24 @@ public sealed class AdminDialog : Form
             Location = new Point(20, 50),
             Size = new Size(320, 25),
             PasswordChar = '*',
+            Enabled = hasPassword,
         };
 
         _verifyButton = new Button { Text = "Verify", Location = new Point(250, 85), Size = new Size(90, 30) };
+        _verifyButton.Enabled = hasPassword;
         _verifyButton.Click += (_, _) => VerifyPassword();
 
         _exitButton = MakeActionButton("Exit", 20, 120, AdminAction.Exit);
         _reloadButton = MakeActionButton("Reload page", 190, 120, AdminAction.Reload);
         _devToolsButton = MakeActionButton("Open DevTools", 20, 165, AdminAction.DevTools);
         _unlockButton = MakeActionButton("Unlock", 190, 165, AdminAction.Unlock);
+        _clearCacheButton = MakeActionButton("Clear cache and reload", 20, 210, AdminAction.ClearCacheAndReload);
+        _clearCacheButton.Size = new Size(320, 35);
 
         var unlockLabel = new Label
         {
             Text = "(Unlock: temporarily switch to a movable window for maintenance.)",
-            Location = new Point(20, 210),
+            Location = new Point(20, 255),
             Size = new Size(320, 60),
             ForeColor = Color.Gray,
         };
@@ -72,10 +79,12 @@ public sealed class AdminDialog : Form
         Controls.AddRange(new Control[]
         {
             lbl, _passwordBox, _verifyButton,
-            _exitButton, _reloadButton, _devToolsButton, _unlockButton, unlockLabel,
+            _exitButton, _reloadButton, _devToolsButton, _unlockButton, _clearCacheButton, unlockLabel,
         });
 
         SetActionButtonsEnabled(false);
+        _reloadButton.Enabled = true;
+        _clearCacheButton.Enabled = true;
         AcceptButton = _verifyButton;
     }
 
@@ -100,7 +109,6 @@ public sealed class AdminDialog : Form
     private void SetActionButtonsEnabled(bool enabled)
     {
         _exitButton.Enabled = enabled;
-        _reloadButton.Enabled = enabled;
         _devToolsButton.Enabled = enabled;
         _unlockButton.Enabled = enabled;
     }

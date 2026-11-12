@@ -27,6 +27,7 @@ public sealed class MainForm : Form
     private bool _devToolsEnabled;
     private bool _showingAdminDialog;
     private bool _adminHotKeyRegistered;
+    private bool _clearingCache;
 
     public MainForm(KioskConfig config, FileLogger logger)
     {
@@ -163,10 +164,14 @@ public sealed class MainForm : Form
 
     private void OnRetry()
     {
-        if (IsDisposed) return;
+        if (IsDisposed || _clearingCache) return;
         if (_config.IsUrlValid && _webView.CoreWebView2 != null)
         {
-            BeginInvoke(() => _webView.CoreWebView2.Navigate(_config.Url));
+            BeginInvoke(() =>
+            {
+                if (!IsDisposed && !_clearingCache && _config.IsUrlValid && _webView.CoreWebView2 != null)
+                    _webView.CoreWebView2.Navigate(_config.Url);
+            });
         }
     }
 
@@ -227,8 +232,11 @@ public sealed class MainForm : Form
     {
         if (KioskUnlockPolicy.ShouldUnlockDirectly(keyData, _config))
         {
+            if (_showingAdminDialog)
+                return true;
             _logger.Log("[admin] direct hotkey unlock without password");
             EnterUnlockedMode();
+            ShowAdminDialog();
             return true;
         }
 
@@ -244,10 +252,14 @@ public sealed class MainForm : Form
     {
         if (m.Msg == WM_HOTKEY && m.WParam.ToInt32() == AdminHotKeyId)
         {
+            if (_showingAdminDialog)
+                return;
+
             if (KioskUnlockPolicy.ShouldUnlockDirectly(_adminCombo, _config))
             {
                 _logger.Log("[admin] direct global hotkey unlock without password");
                 EnterUnlockedMode();
+                ShowAdminDialog();
                 return;
             }
 
@@ -260,18 +272,22 @@ public sealed class MainForm : Form
 
     private void OnAdminTouchHold(object? sender, EventArgs e)
     {
+        if (_showingAdminDialog)
+            return;
+
         if (!KioskUnlockPolicy.HasConfiguredAdminPassword(_config))
         {
             _logger.Log("[admin] touch unlock without password");
             EnterUnlockedMode();
             _authorizedClose = true;
+            ShowAdminDialog();
             return;
         }
 
         ShowAdminDialog(useTouchKeyboard: true);
     }
 
-    private void ShowAdminDialog(bool useTouchKeyboard = false)
+    private async void ShowAdminDialog(bool useTouchKeyboard = false)
     {
         if (_showingAdminDialog)
             return;
@@ -296,6 +312,9 @@ public sealed class MainForm : Form
                     _logger.Log("[admin] reload requested");
                     ReloadConfigAndNavigate();
                     break;
+                case AdminAction.ClearCacheAndReload:
+                    await ClearCacheAndReloadAsync();
+                    break;
                 case AdminAction.DevTools:
                     _logger.Log("[admin] toggle devtools");
                     ToggleDevTools();
@@ -309,6 +328,36 @@ public sealed class MainForm : Form
         finally
         {
             _showingAdminDialog = false;
+        }
+    }
+
+    private async Task ClearCacheAndReloadAsync()
+    {
+        _clearingCache = true;
+        try
+        {
+            var core = _webView.CoreWebView2
+                ?? throw new InvalidOperationException("WebView2 is not initialized.");
+            _logger.Log("[admin] clear cache and reload requested");
+            await core.Profile.ClearBrowsingDataAsync(
+                CoreWebView2BrowsingDataKinds.DiskCache | CoreWebView2BrowsingDataKinds.CacheStorage);
+
+            if (IsDisposed || Disposing)
+                return;
+
+            _logger.Log("[admin] cache cleared");
+            NavigateOrShowConfigError();
+        }
+        catch (Exception ex)
+        {
+            _logger.Log($"[admin] clear cache and reload failed: {ex}");
+            if (!IsDisposed && !Disposing)
+                MessageBox.Show(this, "Could not clear the cache and reload the page. Check the log for details.",
+                    "KioskWin", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+        finally
+        {
+            _clearingCache = false;
         }
     }
 

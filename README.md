@@ -7,7 +7,7 @@ KioskWin is a Windows kiosk shell for opening a configured web page in a full-sc
 - Full-screen borderless Windows Forms host with WebView2.
 - Configurable target URL, retry interval, top-most mode, taskbar visibility, and WebView2 data folder.
 - Optional automatic page fitting with hidden scrollbars via `AutoFitToWindow`.
-- Password-protected admin dialog for exit, reload, DevTools, and temporary unlock mode.
+- Admin dialog with password-protected exit, DevTools, and unlock actions, plus password-free reload and cache clearing.
 - Global admin escape hotkey, defaulting to `Ctrl+Shift+Alt+Q`.
 - Direct unlock with the configured admin escape hotkey when no admin password is configured.
 - Touch access to maintenance by holding the invisible top-right corner for three seconds.
@@ -38,11 +38,13 @@ Runtime settings are read from `appsettings.json` beside `KioskWin.exe`.
 
 Set `AdminPassword` in the deployed `appsettings.json`. It is stored as plain text: restrict access to the file and do not commit a real password. The former `AdminPasswordHash` and `PasswordSalt` settings are no longer supported; remove them and set `AdminPassword` when upgrading. The application rejects non-empty legacy settings rather than silently leaving the kiosk unlocked.
 
-If `AdminPassword` is empty or whitespace, pressing the configured `AdminKeyCombination` directly switches the kiosk into temporary unlocked mode. The default escape hotkey is `Ctrl+Shift+Alt+Q`.
+If `AdminPassword` is empty or whitespace, pressing the configured `AdminKeyCombination` switches the kiosk into temporary unlocked mode and opens the maintenance dialog. The default escape hotkey is `Ctrl+Shift+Alt+Q`.
 
-On a touch screen, hold the top-right 48-by-48-pixel corner for three seconds. The touch target is invisible but intercepts touches in that area. With a configured password, the admin dialog requests the built-in Windows touch keyboard; verify the password and choose **Exit**. Windows may decline the request or choose not to show the keyboard depending on its settings and attached hardware. Without a configured password, the gesture unlocks the window and allows it to be closed. This means anyone with physical access can exit an unconfigured kiosk. Configure `AdminPassword` to require authentication.
+On a touch screen, hold the top-right 48-by-48-pixel corner for three seconds. The touch target is invisible but intercepts touches in that area. With a configured password, the admin dialog requests the built-in Windows touch keyboard; verify the password and choose **Exit**. Windows may decline the request or choose not to show the keyboard depending on its settings and attached hardware. Without a configured password, the gesture unlocks the window, allows it to be closed, and opens the maintenance dialog. This means anyone with physical access can exit an unconfigured kiosk. Configure `AdminPassword` to require authentication.
 
-Verify touch behavior on the target Windows device: the corner must remain transparent over changing page content and error overlays; releasing early or moving outside it must cancel the gesture. When a password is configured, check that the Windows touch keyboard is accessible and an incorrect password cannot enable admin actions.
+Verify touch behavior on the target Windows device: the corner must remain transparent over changing page content and error overlays; releasing early or moving outside it must cancel the gesture. Check that both reload actions work before authentication, cached content is refreshed, and cookies and local storage remain intact. When a password is configured, check that the Windows touch keyboard is accessible and an incorrect password cannot enable protected actions.
+
+The admin dialog's **Reload page** and **Clear cache and reload** actions are available without password verification. The latter clears WebView2's disk cache and CacheStorage for the entire browser profile, then reloads the configured URL. Cookies and other site data such as local storage are not cleared. Exit, DevTools, and unlock actions in the dialog require a configured admin password.
 
 ## Build and Test
 

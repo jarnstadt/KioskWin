@@ -10,6 +10,7 @@ KioskWin is a Windows kiosk shell for opening a configured web page in a full-sc
 - Password-protected admin dialog for exit, reload, DevTools, and temporary unlock mode.
 - Global admin escape hotkey, defaulting to `Ctrl+Shift+Alt+Q`.
 - Direct unlock with the configured admin escape hotkey when no admin password hash and salt are configured.
+- Touch access to maintenance by holding the dark square in the top-right corner for three seconds.
 - Startup shortcut install and uninstall PowerShell scripts included in publish output.
 
 ## Requirements
@@ -26,8 +27,7 @@ Runtime settings are read from `appsettings.json` beside `KioskWin.exe`.
 {
   "Url": "https://www.baidu.com",
   "AdminKeyCombination": "Ctrl+Shift+Alt+Q",
-  "AdminPasswordHash": "",
-  "PasswordSalt": "",
+  "AdminPassword": "",
   "RetryIntervalSeconds": 10,
   "TopMost": true,
   "ShowInTaskbar": false,
@@ -36,13 +36,13 @@ Runtime settings are read from `appsettings.json` beside `KioskWin.exe`.
 }
 ```
 
-Generate admin password values with:
+Set `AdminPassword` in the deployed `appsettings.json`. It is stored as plain text: restrict access to the file and do not commit a real password. The former `AdminPasswordHash` and `PasswordSalt` settings are no longer supported; remove them and set `AdminPassword` when upgrading. The application rejects non-empty legacy settings rather than silently leaving the kiosk unlocked.
 
-```powershell
-.\KioskWin.exe --hash-password <password>
-```
+If `AdminPassword` is empty or whitespace, pressing the configured `AdminKeyCombination` directly switches the kiosk into temporary unlocked mode. The default escape hotkey is `Ctrl+Shift+Alt+Q`.
 
-Copy the generated `AdminPasswordHash` and `PasswordSalt` values into `appsettings.json`. If either value is empty, pressing the configured `AdminKeyCombination` directly switches the kiosk into temporary unlocked mode. The default escape hotkey is `Ctrl+Shift+Alt+Q`.
+On a touch screen, hold the dark square in the top-right corner for three seconds. With a configured password, the admin dialog and Windows On-Screen Keyboard open; verify the password and choose **Exit**. Without a configured password, the gesture unlocks the window and allows it to be closed. This means anyone with physical access can exit an unconfigured kiosk. Configure `AdminPassword` to require authentication. The on-screen keyboard may remain open after the dialog closes.
+
+Verify touch behavior on the target Windows device: releasing early or moving outside the square must cancel the gesture, and the gesture must also work while an error overlay is displayed. When a password is configured, check that the on-screen keyboard is accessible and an incorrect password cannot enable admin actions.
 
 ## Build and Test
 
@@ -88,7 +88,7 @@ powershell -ExecutionPolicy Bypass -File .\uninstall-shortcut.ps1
 ## Project Layout
 
 - `src/KioskWin/`: application code.
-- `src/KioskWin/Core/`: config, parsing, logging, retry, hashing, and helper logic.
+- `src/KioskWin/Core/`: config, parsing, logging, retry, and helper logic.
 - `src/KioskWin/Forms/`: Windows Forms UI.
 - `tests/KioskWin.Tests/`: xUnit tests.
 - `build.bat`: restore, test, publish, and zip script.

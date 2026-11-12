@@ -6,8 +6,7 @@ public sealed class KioskConfig
 {
     public string Url { get; set; } = "";
     public string AdminKeyCombination { get; set; } = "Ctrl+Shift+Alt+Q";
-    public string AdminPasswordHash { get; set; } = "";
-    public string PasswordSalt { get; set; } = "";
+    public string AdminPassword { get; set; } = "";
     public int RetryIntervalSeconds { get; set; } = 10;
     public bool TopMost { get; set; } = true;
     public bool ShowInTaskbar { get; set; } = false;
@@ -22,6 +21,13 @@ public sealed class KioskConfig
 
     public static KioskConfig Load(IConfiguration configuration)
     {
+        if (!string.IsNullOrWhiteSpace(configuration["AdminPasswordHash"]) ||
+            !string.IsNullOrWhiteSpace(configuration["PasswordSalt"]))
+        {
+            throw new InvalidDataException(
+                "AdminPasswordHash and PasswordSalt are no longer supported. Remove them and configure AdminPassword.");
+        }
+
         var cfg = new KioskConfig();
         configuration.Bind(cfg);
 

@@ -1,5 +1,7 @@
 # KioskWin — WebView2 Full-Screen Lockdown Application Design Specification
 
+> Historical design: password hashing and related configuration in this document have been superseded. See the README for current configuration and authentication behavior.
+
 - **Date**: 2026-07-16
 - **Status**: Approved (implementation planning pending)
 - **Target platform**: Windows industrial PC (Win10/11 x64), single display

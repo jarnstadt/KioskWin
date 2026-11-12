@@ -107,7 +107,7 @@ public sealed class AdminDialog : Form
 
     private void VerifyPassword()
     {
-        if (PasswordHasher.Verify(_passwordBox.Text, _config.AdminPasswordHash, _config.PasswordSalt))
+        if (KioskUnlockPolicy.VerifyAdminPassword(_passwordBox.Text, _config))
         {
             SetActionButtonsEnabled(true);
             _passwordBox.Enabled = false;

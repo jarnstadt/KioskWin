@@ -12,9 +12,12 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
-        // F8: generate a password hash in CLI mode without starting the UI
-        if (TryHandleHashPassword(args))
+        if (args.Length > 0 && string.Equals(args[0], "--hash-password", StringComparison.OrdinalIgnoreCase))
+        {
+            MessageBox.Show("The --hash-password option is no longer supported. Set AdminPassword in appsettings.json.",
+                "KioskWin", MessageBoxButtons.OK, MessageBoxIcon.Error);
             return;
+        }
 
         ApplicationConfiguration.Initialize();
 
@@ -48,28 +51,6 @@ internal static class Program
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
         }
-    }
-
-    private static bool TryHandleHashPassword(string[] args)
-    {
-        if (args.Length == 2 &&
-            string.Equals(args[0], "--hash-password", StringComparison.OrdinalIgnoreCase))
-        {
-            // WinExe has no console — attach to parent console (PowerShell/cmd) or allocate one
-            if (!AttachConsole(ATTACH_PARENT_PROCESS))
-                AllocConsole();
-
-            var result = PasswordHasher.Generate(args[1]);
-            Console.WriteLine("Add these two lines to appsettings.json:");
-            Console.WriteLine("  \"AdminPasswordHash\": \"" + result.Hash + "\",");
-            Console.WriteLine("  \"PasswordSalt\": \"" + result.Salt + "\"");
-            Console.WriteLine();
-            Console.WriteLine("Press any key to exit...");
-            Console.ReadKey();
-            FreeConsole();
-            return true;
-        }
-        return false;
     }
 
     private static void BringExistingToFront()
@@ -108,15 +89,5 @@ internal static class Program
     [DllImport("user32.dll")]
     private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
-    [DllImport("kernel32.dll")]
-    private static extern bool AttachConsole(uint dwProcessId);
-
-    [DllImport("kernel32.dll")]
-    private static extern bool AllocConsole();
-
-    [DllImport("kernel32.dll")]
-    private static extern bool FreeConsole();
-
-    private const uint ATTACH_PARENT_PROCESS = 0xFFFFFFFF;
     private const int SW_RESTORE = 9;
 }

@@ -1,5 +1,7 @@
 # KioskWin Implementation Plan
 
+> Historical plan: password hashing and related configuration in this document have been superseded. See the README for current configuration and authentication behavior.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build a full-screen WinForms + WebView2 kiosk application that loads a configurable remote page and prevents regular users from closing it or switching it to the background.

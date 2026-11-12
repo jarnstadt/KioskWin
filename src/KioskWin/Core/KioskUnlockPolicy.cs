@@ -14,7 +14,10 @@ public static class KioskUnlockPolicy
 
     public static bool HasConfiguredAdminPassword(KioskConfig config)
     {
-        return !string.IsNullOrWhiteSpace(config.AdminPasswordHash) &&
-            !string.IsNullOrWhiteSpace(config.PasswordSalt);
+        return !string.IsNullOrWhiteSpace(config.AdminPassword);
     }
+
+    public static bool VerifyAdminPassword(string password, KioskConfig config) =>
+        HasConfiguredAdminPassword(config) &&
+        string.Equals(password, config.AdminPassword, StringComparison.Ordinal);
 }

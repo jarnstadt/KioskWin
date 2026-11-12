@@ -4,6 +4,8 @@ using KioskWin.Core;
 using System.Drawing;
 using System.Windows.Forms;
 using KioskWin.Forms;
+using System.ComponentModel;
+using System.Diagnostics;
 
 namespace KioskWin.Forms;
 
@@ -18,6 +20,7 @@ public sealed class MainForm : Form
 
     private readonly WebView2 _webView;
     private readonly RetryOverlay _overlay;
+    private readonly AdminTouchTarget _adminTouchTarget;
     private readonly RetryController _retry;
     private readonly FormsRetryScheduler _scheduler;
 
@@ -45,10 +48,17 @@ public sealed class MainForm : Form
 
         _webView = new WebView2 { Dock = DockStyle.Fill };
         _overlay = new RetryOverlay { Visible = false };
+        _adminTouchTarget = new AdminTouchTarget(message => _logger.Log(message))
+        {
+            Location = new Point(ClientSize.Width - 48, 0),
+        };
+        _adminTouchTarget.HoldCompleted += OnAdminTouchHold;
 
         Controls.Add(_webView);
         Controls.Add(_overlay);
+        Controls.Add(_adminTouchTarget);
         _overlay.BringToFront();
+        _adminTouchTarget.BringToFront();
 
         _scheduler = new FormsRetryScheduler();
         _retry = new RetryController(config.RetryInterval, _scheduler);
@@ -99,6 +109,7 @@ public sealed class MainForm : Form
             _overlay.ShowRuntimeMissing();
             _overlay.Visible = true;
             _overlay.BringToFront();
+            _adminTouchTarget.BringToFront();
         }
     }
 
@@ -127,6 +138,7 @@ public sealed class MainForm : Form
             _overlay.ShowConfigError();
             _overlay.Visible = true;
             _overlay.BringToFront();
+            _adminTouchTarget.BringToFront();
         }
     }
 
@@ -145,6 +157,7 @@ public sealed class MainForm : Form
             _overlay.ShowRetry();
             _overlay.Visible = true;
             _overlay.BringToFront();
+            _adminTouchTarget.BringToFront();
             _retry.ReportFailure();
         }
     }
@@ -164,6 +177,7 @@ public sealed class MainForm : Form
         _overlay.ShowGenericError("The web page rendering process crashed. Retrying…");
         _overlay.Visible = true;
         _overlay.BringToFront();
+        _adminTouchTarget.BringToFront();
         _retry.ReportFailure();
         _ = ReinitAsync();
     }
@@ -245,7 +259,20 @@ public sealed class MainForm : Form
         base.WndProc(ref m);
     }
 
-    private void ShowAdminDialog()
+    private void OnAdminTouchHold(object? sender, EventArgs e)
+    {
+        if (!KioskUnlockPolicy.HasConfiguredAdminPassword(_config))
+        {
+            _logger.Log("[admin] touch unlock without password");
+            EnterUnlockedMode();
+            _authorizedClose = true;
+            return;
+        }
+
+        ShowAdminDialog(useOnScreenKeyboard: true);
+    }
+
+    private void ShowAdminDialog(bool useOnScreenKeyboard = false)
     {
         if (_showingAdminDialog)
             return;
@@ -254,8 +281,24 @@ public sealed class MainForm : Form
         try
         {
             using var dlg = new AdminDialog(_config, message => _logger.Log(message));
+            bool wasTopMost = TopMost;
+            if (useOnScreenKeyboard)
+            {
+                TopMost = false;
+                dlg.Shown += (_, _) => ShowOnScreenKeyboard(dlg);
+            }
             dlg.TopMost = TopMost;
-            if (dlg.ShowDialog(this) != DialogResult.OK) return;
+            DialogResult result;
+            try
+            {
+                result = dlg.ShowDialog(this);
+            }
+            finally
+            {
+                if (useOnScreenKeyboard)
+                    TopMost = wasTopMost;
+            }
+            if (result != DialogResult.OK) return;
 
             switch (dlg.Result)
             {
@@ -281,6 +324,22 @@ public sealed class MainForm : Form
         finally
         {
             _showingAdminDialog = false;
+        }
+    }
+
+    private void ShowOnScreenKeyboard(Form owner)
+    {
+        try
+        {
+            var keyboardPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "osk.exe");
+            if (Process.Start(new ProcessStartInfo(keyboardPath) { UseShellExecute = true }) == null)
+                throw new InvalidOperationException("Windows did not start the On-Screen Keyboard.");
+        }
+        catch (Exception ex) when (ex is Win32Exception or InvalidOperationException or IOException or UnauthorizedAccessException)
+        {
+            _logger.Log($"[admin] failed to start On-Screen Keyboard: {ex}");
+            MessageBox.Show(owner, "Could not open the Windows On-Screen Keyboard. Use another keyboard to enter the password.",
+                "KioskWin", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 

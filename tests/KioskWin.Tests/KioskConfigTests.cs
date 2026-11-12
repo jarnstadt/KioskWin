@@ -19,8 +19,7 @@ public class KioskConfigTests
         var cfg = KioskConfig.Load(ConfigFromMemory(
             ("Url", "https://example.com/"),
             ("AdminKeyCombination", "Ctrl+Alt+P"),
-            ("AdminPasswordHash", "ABCD"),
-            ("PasswordSalt", "1234"),
+            ("AdminPassword", "example-password"),
             ("RetryIntervalSeconds", "30"),
             ("TopMost", "false"),
             ("ShowInTaskbar", "true"),
@@ -30,8 +29,7 @@ public class KioskConfigTests
 
         Assert.Equal("https://example.com/", cfg.Url);
         Assert.Equal("Ctrl+Alt+P", cfg.AdminKeyCombination);
-        Assert.Equal("ABCD", cfg.AdminPasswordHash);
-        Assert.Equal("1234", cfg.PasswordSalt);
+        Assert.Equal("example-password", cfg.AdminPassword);
         Assert.Equal(30, cfg.RetryIntervalSeconds);
         Assert.False(cfg.TopMost);
         Assert.True(cfg.ShowInTaskbar);
@@ -60,6 +58,7 @@ public class KioskConfigTests
     {
         var cfg = KioskConfig.Load(ConfigFromMemory(("Url", "https://x")));
         Assert.Equal("Ctrl+Shift+Alt+Q", cfg.AdminKeyCombination);
+        Assert.Equal("", cfg.AdminPassword);
         Assert.Equal("WebView2Data", cfg.UserDataFolder);
         Assert.Equal(10, cfg.RetryIntervalSeconds);
         Assert.True(cfg.TopMost);
@@ -79,25 +78,28 @@ public class KioskConfigTests
     [Fact]
     public void Configured_admin_hotkey_directly_unlocks_when_admin_password_is_not_configured()
     {
-        var cfg = KioskConfig.Load(ConfigFromMemory(
-            ("AdminPasswordHash", ""),
-            ("PasswordSalt", "")));
+        var cfg = KioskConfig.Load(ConfigFromMemory(("AdminPassword", "")));
         var keyData = KeyCombinationParser.Parse(cfg.AdminKeyCombination);
 
         Assert.True(KioskUnlockPolicy.ShouldUnlockDirectly(keyData, cfg));
     }
 
     [Theory]
-    [InlineData("", "salt")]
-    [InlineData("hash", "")]
-    public void Configured_admin_hotkey_directly_unlocks_when_admin_password_is_incomplete(string hash, string salt)
+    [InlineData("AdminPasswordHash")]
+    [InlineData("PasswordSalt")]
+    public void Legacy_password_configuration_is_rejected_instead_of_unlocking(string legacyKey)
     {
-        var cfg = KioskConfig.Load(ConfigFromMemory(
-            ("AdminPasswordHash", hash),
-            ("PasswordSalt", salt)));
-        var keyData = KeyCombinationParser.Parse(cfg.AdminKeyCombination);
+        var exception = Assert.Throws<InvalidDataException>(() =>
+            KioskConfig.Load(ConfigFromMemory((legacyKey, "old-value"))));
+        Assert.Contains("AdminPassword", exception.Message);
+    }
 
-        Assert.True(KioskUnlockPolicy.ShouldUnlockDirectly(keyData, cfg));
+    [Fact]
+    public void Legacy_password_configuration_is_rejected_even_with_a_new_password()
+    {
+        Assert.Throws<InvalidDataException>(() => KioskConfig.Load(ConfigFromMemory(
+            ("AdminPassword", "example-password"),
+            ("AdminPasswordHash", "old-value"))));
     }
 
     [Theory]
@@ -106,9 +108,7 @@ public class KioskConfigTests
     [InlineData(Keys.Escape)]
     public void Non_admin_hotkeys_do_not_directly_unlock_without_admin_password(Keys keyData)
     {
-        var cfg = KioskConfig.Load(ConfigFromMemory(
-            ("AdminPasswordHash", ""),
-            ("PasswordSalt", "")));
+        var cfg = KioskConfig.Load(ConfigFromMemory(("AdminPassword", "")));
 
         Assert.False(KioskUnlockPolicy.ShouldUnlockDirectly(keyData, cfg));
     }
@@ -116,12 +116,31 @@ public class KioskConfigTests
     [Fact]
     public void Configured_admin_hotkey_does_not_directly_unlock_when_admin_password_is_configured()
     {
-        var cfg = KioskConfig.Load(ConfigFromMemory(
-            ("AdminPasswordHash", "hash"),
-            ("PasswordSalt", "salt")));
+        var cfg = KioskConfig.Load(ConfigFromMemory(("AdminPassword", "example-password")));
         var keyData = KeyCombinationParser.Parse(cfg.AdminKeyCombination);
 
         Assert.False(KioskUnlockPolicy.ShouldUnlockDirectly(keyData, cfg));
+    }
+
+    [Theory]
+    [InlineData("example-password", true)]
+    [InlineData("Example-password", false)]
+    [InlineData("", false)]
+    public void Admin_password_verification_is_exact(string entered, bool expected)
+    {
+        var cfg = KioskConfig.Load(ConfigFromMemory(("AdminPassword", "example-password")));
+        Assert.Equal(expected, KioskUnlockPolicy.VerifyAdminPassword(entered, cfg));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Empty_or_whitespace_password_does_not_authenticate(string password)
+    {
+        var cfg = KioskConfig.Load(ConfigFromMemory(("AdminPassword", password)));
+        Assert.False(KioskUnlockPolicy.VerifyAdminPassword(password, cfg));
+        Assert.True(KioskUnlockPolicy.ShouldUnlockDirectly(
+            KeyCombinationParser.Parse(cfg.AdminKeyCombination), cfg));
     }
 
     [Theory]

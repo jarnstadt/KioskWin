@@ -281,24 +281,10 @@ public sealed class MainForm : Form
         try
         {
             using var dlg = new AdminDialog(_config, message => _logger.Log(message));
-            bool wasTopMost = TopMost;
             if (useOnScreenKeyboard)
-            {
-                TopMost = false;
                 dlg.Shown += (_, _) => ShowOnScreenKeyboard(dlg);
-            }
             dlg.TopMost = TopMost;
-            DialogResult result;
-            try
-            {
-                result = dlg.ShowDialog(this);
-            }
-            finally
-            {
-                if (useOnScreenKeyboard)
-                    TopMost = wasTopMost;
-            }
-            if (result != DialogResult.OK) return;
+            if (dlg.ShowDialog(this) != DialogResult.OK) return;
 
             switch (dlg.Result)
             {

@@ -12,13 +12,13 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
-        // F8：CLI 模式生成密码哈希（不启动 UI）
+        // F8: generate a password hash in CLI mode without starting the UI
         if (TryHandleHashPassword(args))
             return;
 
         ApplicationConfiguration.Initialize();
 
-        // F9：单实例——已有实例则尝试置前并退出
+        // F9: single instance — bring the existing instance to the foreground and exit
         using var mutex = new Mutex(initiallyOwned: true, MutexName, out bool createdNew);
         if (!createdNew)
         {
@@ -26,7 +26,7 @@ internal static class Program
             return;
         }
 
-        // N3：全局异常兜底，避免静默崩溃
+        // N3: handle unhandled exceptions globally to avoid silent crashes
         Application.ThreadException += (_, e) => LogException(e.Exception, "UI thread exception");
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
             LogException(e.ExceptionObject as Exception, "AppDomain unhandled");
@@ -43,7 +43,7 @@ internal static class Program
         {
             LogException(ex, "startup");
             MessageBox.Show(
-                "程序启动失败，请查看日志：\n" + ex.Message,
+                "The program failed to start. Check the log:\n" + ex.Message,
                 "KioskWin",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
@@ -86,7 +86,7 @@ internal static class Program
         }
         catch
         {
-            // best-effort，置前失败不影响单实例退出逻辑
+            // Best effort: failure to bring the window forward does not affect single-instance exit logic.
         }
     }
 
@@ -98,7 +98,7 @@ internal static class Program
         }
         catch
         {
-            // 日志本身失败不要再抛，避免二次异常
+            // Do not rethrow logging failures and cause a second exception.
         }
     }
 

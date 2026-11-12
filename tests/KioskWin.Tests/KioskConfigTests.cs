@@ -51,7 +51,7 @@ public class KioskConfigTests
     {
         var cfg = KioskConfig.Load(ConfigFromMemory(("Url", "not a url")));
         Assert.False(cfg.IsUrlValid);
-        // 非法 URL 保留原值，不替换
+        // Preserve an invalid URL as-is.
         Assert.Equal("not a url", cfg.Url);
     }
 
@@ -125,10 +125,10 @@ public class KioskConfigTests
     }
 
     [Theory]
-    [InlineData(0, 10)]      // 非法 -> 默认 10
-    [InlineData(-5, 10)]     // 非法 -> 默认 10
+    [InlineData(0, 10)]      // Invalid -> default to 10
+    [InlineData(-5, 10)]     // Invalid -> default to 10
     [InlineData(3, 3)]
-    [InlineData(99999, 600)] // 上限
+    [InlineData(99999, 600)] // Upper limit
     public void RetryInterval_clamped(int input, int expectedSeconds)
     {
         var cfg = KioskConfig.Load(ConfigFromMemory(

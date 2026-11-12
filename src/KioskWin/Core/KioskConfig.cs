@@ -25,7 +25,7 @@ public sealed class KioskConfig
         var cfg = new KioskConfig();
         configuration.Bind(cfg);
 
-        // 兜底默认值：Bind 会用 JSON 值覆盖上面的默认值；这里修正非法/空值
+        // Bind overwrites the defaults above with JSON values; normalize invalid or empty values here.
         if (string.IsNullOrWhiteSpace(cfg.AdminKeyCombination))
             cfg.AdminKeyCombination = "Ctrl+Shift+Alt+Q";
         if (string.IsNullOrWhiteSpace(cfg.UserDataFolder))

@@ -6,12 +6,12 @@ obj/
 .vs/
 *.lock.json
 
-# 构建/发布产物
+# Build and publish output
 publish/
 [Pp]ublish/
 artifacts/
 
-# WebView2 运行时数据与本地缓存
+# WebView2 runtime data and local cache
 WebView2Data/
 *.tmp
 
@@ -19,7 +19,7 @@ WebView2Data/
 .idea/
 *.swp
 
-# 日志
+# Logs
 *.log
 
 # subagent-driven-development scratch

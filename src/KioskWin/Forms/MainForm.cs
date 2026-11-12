@@ -32,12 +32,12 @@ public sealed class MainForm : Form
         _logger = logger;
         _adminCombo = KeyCombinationParser.Parse(config.AdminKeyCombination);
 
-        // F3 无边框全屏 + 无最小化/关闭按钮
+        // F3: borderless fullscreen with no minimize or close buttons
         FormBorderStyle = FormBorderStyle.None;
         WindowState = FormWindowState.Maximized;
         StartPosition = FormStartPosition.CenterScreen;
 
-        // F5 防切到后台
+        // F5: prevent switching to the background
         TopMost = config.TopMost;
         ShowInTaskbar = config.ShowInTaskbar;
         KeyPreview = true;
@@ -72,7 +72,7 @@ public sealed class MainForm : Form
         base.OnHandleDestroyed(e);
     }
 
-    // ---- WebView2 初始化与导航 ----
+    // ---- WebView2 initialization and navigation ----
 
     private async void OnLoad(object? sender, EventArgs e)
     {
@@ -94,7 +94,7 @@ public sealed class MainForm : Form
         }
         catch (Exception ex)
         {
-            // 未检测到 WebView2 运行时等情况
+            // For example, when the WebView2 runtime is not detected.
             _logger.Log($"[webview2 init] {ex}");
             _overlay.ShowRuntimeMissing();
             _overlay.Visible = true;
@@ -161,7 +161,7 @@ public sealed class MainForm : Form
     private void OnProcessFailed(object? sender, CoreWebView2ProcessFailedEventArgs e)
     {
         _logger.Log($"[webview2] process failed: {e.ProcessFailedKind}");
-        _overlay.ShowGenericError("网页渲染进程崩溃，正在重试…");
+        _overlay.ShowGenericError("The web page rendering process crashed. Retrying…");
         _overlay.Visible = true;
         _overlay.BringToFront();
         _retry.ReportFailure();
@@ -184,11 +184,11 @@ public sealed class MainForm : Form
         }
     }
 
-    // ---- 锁定行为 ----
+    // ---- Lock behavior ----
 
     private void OnFormClosing(object? sender, FormClosingEventArgs e)
     {
-        // F4：拦截用户触发的关闭（Alt+F4 / 关闭按钮），除非管理员授权
+        // F4: intercept user-initiated closing (Alt+F4 / close button) unless authorized by an administrator.
         if (!_authorizedClose && e.CloseReason == CloseReason.UserClosing)
         {
             e.Cancel = true;
@@ -198,7 +198,7 @@ public sealed class MainForm : Form
 
     private void OnDeactivate(object? sender, EventArgs e)
     {
-        // F5：失焦后抢回前台（但在显示管理对话框时不抢）
+        // F5: reclaim the foreground after losing focus, except while the admin dialog is open.
         if (TopMost && !_showingAdminDialog)
             BeginInvoke(() => Activate());
     }
@@ -208,7 +208,7 @@ public sealed class MainForm : Form
         _ = ApplyAutoFitAsync();
     }
 
-    // ---- 管理员逃生通道 ----
+    // ---- Administrator escape path ----
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
@@ -222,7 +222,7 @@ public sealed class MainForm : Form
         if (_adminCombo != Keys.None && keyData == _adminCombo)
         {
             ShowAdminDialog();
-            return true; // 吞掉按键
+            return true; // Consume the keystroke.
         }
         return base.ProcessCmdKey(ref msg, keyData);
     }

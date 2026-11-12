@@ -76,7 +76,7 @@ public class RetryControllerTests
         var ctrl = new RetryController(TimeSpan.FromSeconds(7), sched);
 
         ctrl.ReportFailure();
-        ctrl.ReportFailure(); // 再次失败应被忽略
+        ctrl.ReportFailure(); // A subsequent failure should be ignored.
 
         Assert.Equal(RetryState.Retrying, ctrl.State);
         Assert.Equal(TimeSpan.FromSeconds(7), sched.LastInterval);

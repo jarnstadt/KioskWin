@@ -1,76 +1,76 @@
-# KioskWin 实现计划
+# KioskWin Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 构建一个 WinForms + WebView2 的全屏锁定程序，加载可配置远程网页，防止普通用户关闭或切到后台。
+**Goal:** Build a full-screen WinForms + WebView2 kiosk application that loads a configurable remote page and prevents regular users from closing it or switching it to the background.
 
-**Architecture:** 单 WinExe 项目（`KioskWin`，net8.0-windows）+ xUnit 测试项目。纯逻辑放 `Core/`（配置、密码哈希、重试状态机、日志、组合键解析），TDD 覆盖；Win32/WebView2/窗口行为放 `Forms/`，用手动 QA 清单覆盖。`Program.cs` 负责入口、单实例、异常兜底、`--hash-password` CLI。自包含单文件发布，拷贝即用。
+**Architecture:** A single WinExe project (`KioskWin`, net8.0-windows) plus an xUnit test project. Put pure logic in `Core/` (configuration, password hashing, retry state machine, logging, key-combination parsing) and cover it with TDD; put Win32/WebView2/window behavior in `Forms/` and cover it with a manual QA checklist. `Program.cs` handles the entry point, single-instance behavior, exception handling, and `--hash-password` CLI. Publish as a self-contained single file that can be copied and run.
 
 **Tech Stack:** C# / .NET 8 (net8.0-windows), WinForms, Microsoft.Web.WebView2 (Evergreen), Microsoft.Extensions.Configuration, xUnit.
 
 ## Global Constraints
 
-- **目标框架**：`net8.0-windows`。构建/发布/测试均在 Windows 上运行（WSL 无 dotnet；源码在 `/mnt/d/code/position-win` 即 Windows `D:` 盘，编辑在 WSL，编译在 Windows）。
-- **NuGet 版本**：`Microsoft.Web.WebView2` 1.0.2903.40；`Microsoft.Extensions.Configuration.Json` 8.0.1；`Microsoft.Extensions.Configuration.Binder` 8.0.2；测试用 `Microsoft.NET.Test.Sdk` 17.11.1、`xunit` 2.9.2、`xunit.runner.visualstudio` 2.8.2、`Microsoft.Extensions.Configuration.Memory` 8.0.1。如某个版本恢复失败，改用同主版本的最新修订号。
-- **命名空间**：主项目 `KioskWin`、`KioskWin.Core`、`KioskWin.Forms`；测试 `KioskWin.Tests`。
-- **UI 全部代码构造**：不使用 `.Designer.cs`（计划中所有控件在构造函数里 new 出来），便于在无 WinForms 设计器的环境下完整呈现代码。
-- **配置文件**：`appsettings.json` 与 exe 同目录，`CopyToOutputDirectory=PreserveNewest`。**禁止存明文密码**——存 `AdminPasswordHash`(SHA-256 hex) + 随机 `PasswordSalt`。
-- **单实例互斥锁名**：`Global\KioskWin_SingleInstance`。
-- **日志目录**：`%LocalAppData%\KioskWin\logs\`，按天 `yyyy-MM-dd.log`。
-- **每完成一个任务即 commit**（frequent commits）。仓库已初始化于项目根目录。
-- **YAGNI**：只实现规格第 2 节的需求；中等/高强度锁定（规格第 12 节）不做。
+- **Target framework**: `net8.0-windows`. Build, publish, and test on Windows (WSL has no dotnet; source is at `/mnt/d/code/position-win`, the Windows `D:` drive; edit in WSL and compile on Windows).
+- **NuGet versions**: `Microsoft.Web.WebView2` 1.0.2903.40; `Microsoft.Extensions.Configuration.Json` 8.0.1; `Microsoft.Extensions.Configuration.Binder` 8.0.2; for tests, `Microsoft.NET.Test.Sdk` 17.11.1, `xunit` 2.9.2, `xunit.runner.visualstudio` 2.8.2, and `Microsoft.Extensions.Configuration.Memory` 8.0.1. If a version cannot be restored, use the latest patch version in the same major release.
+- **Namespaces**: main project `KioskWin`, `KioskWin.Core`, `KioskWin.Forms`; tests `KioskWin.Tests`.
+- **UI construction**: Do not use `.Designer.cs` (construct all controls in code, in the constructors) so the code can be presented completely without the WinForms designer.
+- **Configuration file**: Keep `appsettings.json` next to the exe and set `CopyToOutputDirectory=PreserveNewest`. **Never store plaintext passwords**—store `AdminPasswordHash` (SHA-256 hex) + a random `PasswordSalt`.
+- **Single-instance mutex name**: `Global\KioskWin_SingleInstance`.
+- **Log directory**: `%LocalAppData%\KioskWin\logs\`, with daily `yyyy-MM-dd.log` files.
+- **Commit after every task** (frequent commits). The repository is initialized at the project root.
+- **YAGNI**: implement only the requirements in section 2 of the specification; do not implement medium/high-security lockdown (section 12).
 
 ---
 
-## 文件结构（本计划创建/修改的文件）
+## File structure (files created/modified by this plan)
 
-| 文件 | 职责 | 创建任务 |
+| File | Responsibility | Task |
 |---|---|---|
-| `KioskWin.sln` | 解决方案 | Task 1 |
-| `src/KioskWin/KioskWin.csproj` | WinForms 项目 + 依赖 | Task 1 |
-| `src/KioskWin/Program.cs` | 入口（占位→最终） | Task 1 / Task 10 |
-| `src/KioskWin/appsettings.json` | 配置 | Task 1 |
-| `src/KioskWin/Core/FileLogger.cs` | 按天文件日志 | Task 2 |
-| `src/KioskWin/Core/PasswordHasher.cs` | SHA-256(salt+pwd) 哈希/校验 | Task 3 |
-| `src/KioskWin/Core/KeyCombinationParser.cs` | "Ctrl+Shift+Alt+Q"→Keys | Task 4 |
-| `src/KioskWin/Core/KioskConfig.cs` | 配置 POCO + 加载/校验/默认 | Task 5 |
-| `src/KioskWin/Core/RetryController.cs` | 重试状态机 + IRetryScheduler | Task 6 |
-| `src/KioskWin/Core/FormsRetryScheduler.cs` | 生产用 Forms.Timer 调度器 | Task 6 |
-| `src/KioskWin/Forms/RetryOverlay.cs` | 复用全屏遮罩控件 | Task 7 |
-| `src/KioskWin/Forms/AdminDialog.cs` | 密码框 + 工具按钮对话框 | Task 8 |
-| `src/KioskWin/Forms/MainForm.cs` | 无边框全屏 + WebView2 + 锁定 + 重试 + 管理员入口 | Task 9 |
-| `src/KioskWin/install-shortcut.ps1` | 开机自启快捷方式 | Task 11 |
-| `tests/KioskWin.Tests/KioskWin.Tests.csproj` | 测试项目 | Task 1 |
-| `tests/KioskWin.Tests/*.cs` | Core 单元测试 | Task 2-6 |
+| `KioskWin.sln` | Solution | Task 1 |
+| `src/KioskWin/KioskWin.csproj` | WinForms project + dependencies | Task 1 |
+| `src/KioskWin/Program.cs` | Entry point (placeholder → final) | Task 1 / Task 10 |
+| `src/KioskWin/appsettings.json` | Configuration | Task 1 |
+| `src/KioskWin/Core/FileLogger.cs` | Daily file logging | Task 2 |
+| `src/KioskWin/Core/PasswordHasher.cs` | SHA-256(salt+pwd) hashing/verification | Task 3 |
+| `src/KioskWin/Core/KeyCombinationParser.cs` | "Ctrl+Shift+Alt+Q" → Keys | Task 4 |
+| `src/KioskWin/Core/KioskConfig.cs` | Configuration POCO + loading/validation/defaults | Task 5 |
+| `src/KioskWin/Core/RetryController.cs` | Retry state machine + IRetryScheduler | Task 6 |
+| `src/KioskWin/Core/FormsRetryScheduler.cs` | Production Forms.Timer scheduler | Task 6 |
+| `src/KioskWin/Forms/RetryOverlay.cs` | Reusable full-screen overlay control | Task 7 |
+| `src/KioskWin/Forms/AdminDialog.cs` | Password field + action-button dialog | Task 8 |
+| `src/KioskWin/Forms/MainForm.cs` | Borderless full-screen + WebView2 + lockdown + retry + admin entry | Task 9 |
+| `src/KioskWin/install-shortcut.ps1` | Startup shortcut | Task 11 |
+| `tests/KioskWin.Tests/KioskWin.Tests.csproj` | Test project | Task 1 |
+| `tests/KioskWin.Tests/*.cs` | Core unit tests | Tasks 2–6 |
 
 ---
 
-## Task 1: 项目脚手架与构建验证
+## Task 1: Project scaffolding and build verification
 
 **Files:**
 - Create: `KioskWin.sln`
 - Create: `src/KioskWin/KioskWin.csproj`
-- Create: `src/KioskWin/Program.cs`（占位）
+- Create: `src/KioskWin/Program.cs` (placeholder)
 - Create: `src/KioskWin/appsettings.json`
 - Create: `tests/KioskWin.Tests/KioskWin.Tests.csproj`
 - Create: `tests/KioskWin.Tests/SmokeTests.cs`
 
 **Interfaces:**
-- Produces: 可构建的解决方案；`KioskWin` 命名空间；后续任务在此基础上加文件。
+- Produces: A buildable solution, the `KioskWin` namespace, and a base for files added in later tasks.
 
-- [ ] **Step 1: 创建解决方案**
+- [ ] **Step 1: Create the solution**
 
-在项目根目录（`D:\code\position-win`，WSL 路径 `/mnt/d/code/position-win`）运行：
+Run from the project root (`D:\code\position-win`, WSL path `/mnt/d/code/position-win`):
 
 ```bash
 dotnet new sln -n KioskWin
 ```
 
-预期：生成 `KioskWin.sln`。
+Expected: `KioskWin.sln` is generated.
 
-- [ ] **Step 2: 写主项目 csproj**
+- [ ] **Step 2: Write the main project csproj**
 
-创建 `src/KioskWin/KioskWin.csproj`：
+Create `src/KioskWin/KioskWin.csproj`:
 
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
@@ -100,9 +100,9 @@ dotnet new sln -n KioskWin
 </Project>
 ```
 
-- [ ] **Step 3: 写占位 Program.cs**
+- [ ] **Step 3: Write the placeholder Program.cs**
 
-创建 `src/KioskWin/Program.cs`（Task 10 会替换为最终版本）：
+Create `src/KioskWin/Program.cs` (Task 10 replaces it with the final version):
 
 ```csharp
 namespace KioskWin;
@@ -118,9 +118,9 @@ internal static class Program
 }
 ```
 
-- [ ] **Step 4: 写 appsettings.json**
+- [ ] **Step 4: Write appsettings.json**
 
-创建 `src/KioskWin/appsettings.json`（密码哈希先留空，部署时用 `--hash-password` 填充）：
+Create `src/KioskWin/appsettings.json` (leave the password hash empty for now; populate it during deployment with `--hash-password`):
 
 ```json
 {
@@ -135,9 +135,9 @@ internal static class Program
 }
 ```
 
-- [ ] **Step 5: 写测试项目 csproj**
+- [ ] **Step 5: Write the test project csproj**
 
-创建 `tests/KioskWin.Tests/KioskWin.Tests.csproj`：
+Create `tests/KioskWin.Tests/KioskWin.Tests.csproj`:
 
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
@@ -164,9 +164,9 @@ internal static class Program
 </Project>
 ```
 
-- [ ] **Step 6: 写一个冒烟测试**
+- [ ] **Step 6: Write a smoke test**
 
-创建 `tests/KioskWin.Tests/SmokeTests.cs`：
+Create `tests/KioskWin.Tests/SmokeTests.cs`:
 
 ```csharp
 using Xunit;
@@ -178,20 +178,20 @@ public class SmokeTests
     [Fact]
     public void TestRunnerWorks()
     {
-        // 仅验证测试运行器与项目引用链路正常；Task 2 起被真正的 Core 测试取代
+        // Only verify that the test runner and project reference work; replaced by real Core tests starting in Task 2.
         Assert.Equal(1, 1);
     }
 }
 ```
 
-- [ ] **Step 7: 把两个项目加入解决方案**
+- [ ] **Step 7: Add both projects to the solution**
 
 ```bash
 dotnet sln add src/KioskWin/KioskWin.csproj
 dotnet sln add tests/KioskWin.Tests/KioskWin.Tests.csproj
 ```
 
-- [ ] **Step 8: 还原 + 构建 + 测试**
+- [ ] **Step 8: Restore + build + test**
 
 ```bash
 dotnet restore
@@ -199,9 +199,9 @@ dotnet build KioskWin.sln -c Debug
 dotnet test
 ```
 
-预期：还原成功；构建 0 错误；测试通过 1 个。
+Expected: restore succeeds; build has 0 errors; 1 test passes.
 
-- [ ] **Step 9: 提交**
+- [ ] **Step 9: Commit**
 
 ```bash
 git add -A
@@ -218,13 +218,13 @@ git commit -m "chore: scaffold KioskWin solution and test project"
 
 **Interfaces:**
 - Produces: `KioskWin.Core.FileLogger`
-  - `FileLogger()` — 默认写到 `%LocalAppData%\KioskWin\logs\`
-  - `FileLogger(string logDirectory)` — 用于测试注入目录
-  - `void Log(string message)` — 追加一行（带时间戳）到 `yyyy-MM-dd.log`
+  - `FileLogger()` — writes by default to `%LocalAppData%\KioskWin\logs\`
+  - `FileLogger(string logDirectory)` — accepts an injected directory for tests
+  - `void Log(string message)` — appends one timestamped line to `yyyy-MM-dd.log`
 
-- [ ] **Step 1: 写失败测试**
+- [ ] **Step 1: Write a failing test**
 
-创建 `tests/KioskWin.Tests/FileLoggerTests.cs`：
+Create `tests/KioskWin.Tests/FileLoggerTests.cs`:
 
 ```csharp
 using KioskWin.Core;
@@ -266,20 +266,20 @@ public class FileLoggerTests
 }
 ```
 
-- [ ] **Step 2: 删除冒烟测试并运行测试确认失败**
+- [ ] **Step 2: Delete the smoke test and run tests to confirm failure**
 
-Task 1 的冒烟测试使命已完成，删除它：
+The smoke test from Task 1 has served its purpose; delete it:
 
 ```bash
 rm tests/KioskWin.Tests/SmokeTests.cs
 dotnet test
 ```
 
-预期：编译失败 / 测试失败，提示 `FileLogger` 未定义。
+Expected: compilation/tests fail with `FileLogger` undefined.
 
-- [ ] **Step 3: 实现 FileLogger**
+- [ ] **Step 3: Implement FileLogger**
 
-创建 `src/KioskWin/Core/FileLogger.cs`：
+Create `src/KioskWin/Core/FileLogger.cs`:
 
 ```csharp
 namespace KioskWin.Core;
@@ -314,15 +314,15 @@ public sealed class FileLogger
 }
 ```
 
-- [ ] **Step 4: 运行测试确认通过**
+- [ ] **Step 4: Run tests to confirm they pass**
 
 ```bash
 dotnet test --filter "FullyQualifiedName~FileLoggerTests"
 ```
 
-预期：2 个测试通过。
+Expected: 2 tests pass.
 
-- [ ] **Step 5: 提交**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add -A
@@ -340,13 +340,13 @@ git commit -m "feat(core): add FileLogger with daily file rotation"
 **Interfaces:**
 - Produces: `KioskWin.Core.PasswordHasher`
   - `record PasswordHashResult(string Hash, string Salt)`
-  - `static PasswordHashResult Generate(string password)` — 随机 16 字节 salt，返回 hex
-  - `static bool Verify(string password, string expectedHashHex, string saltHex)` — 常数时间比较
-- 算法：`SHA-256(UTF8(password) + salt)`，hex 编码。
+  - `static PasswordHashResult Generate(string password)` — generates a random 16-byte salt and returns hex values
+  - `static bool Verify(string password, string expectedHashHex, string saltHex)` — uses a constant-time comparison
+- Algorithm: `SHA-256(UTF8(password) + salt)`, hex-encoded.
 
-- [ ] **Step 1: 写失败测试**
+- [ ] **Step 1: Write a failing test**
 
-创建 `tests/KioskWin.Tests/PasswordHasherTests.cs`：
+Create `tests/KioskWin.Tests/PasswordHasherTests.cs`:
 
 ```csharp
 using KioskWin.Core;
@@ -394,17 +394,17 @@ public class PasswordHasherTests
 }
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [ ] **Step 2: Run tests to confirm failure**
 
 ```bash
 dotnet test --filter "FullyQualifiedName~PasswordHasherTests"
 ```
 
-预期：失败，`PasswordHasher` 未定义。
+Expected: failure because `PasswordHasher` is undefined.
 
-- [ ] **Step 3: 实现 PasswordHasher**
+- [ ] **Step 3: Implement PasswordHasher**
 
-创建 `src/KioskWin/Core/PasswordHasher.cs`：
+Create `src/KioskWin/Core/PasswordHasher.cs`:
 
 ```csharp
 using System.Security.Cryptography;
@@ -456,15 +456,15 @@ public static class PasswordHasher
 }
 ```
 
-- [ ] **Step 4: 运行测试确认通过**
+- [ ] **Step 4: Run tests to confirm they pass**
 
 ```bash
 dotnet test --filter "FullyQualifiedName~PasswordHasherTests"
 ```
 
-预期：5 个测试通过。
+Expected: 5 tests pass.
 
-- [ ] **Step 5: 提交**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add -A
@@ -481,12 +481,12 @@ git commit -m "feat(core): add PasswordHasher (SHA-256 + salt, constant-time com
 
 **Interfaces:**
 - Produces: `KioskWin.Core.KeyCombinationParser`
-  - `static System.Windows.Forms.Keys Parse(string text)` — 解析 `"Ctrl+Shift+Alt+Q"` 为按位或的 `Keys`
-- 消费：`System.Windows.Forms.Keys`（主项目已是 WinForms）。
+  - `static System.Windows.Forms.Keys Parse(string text)` — parses `"Ctrl+Shift+Alt+Q"` into a bitwise-OR `Keys` value
+- Consumes: `System.Windows.Forms.Keys` (the main project already uses WinForms).
 
-- [ ] **Step 1: 写失败测试**
+- [ ] **Step 1: Write a failing test**
 
-创建 `tests/KioskWin.Tests/KeyCombinationParserTests.cs`：
+Create `tests/KioskWin.Tests/KeyCombinationParserTests.cs`:
 
 ```csharp
 using System.Windows.Forms;
@@ -533,17 +533,17 @@ public class KeyCombinationParserTests
 }
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [ ] **Step 2: Run tests to confirm failure**
 
 ```bash
 dotnet test --filter "FullyQualifiedName~KeyCombinationParserTests"
 ```
 
-预期：失败，`KeyCombinationParser` 未定义。
+Expected: failure because `KeyCombinationParser` is undefined.
 
-- [ ] **Step 3: 实现 KeyCombinationParser**
+- [ ] **Step 3: Implement KeyCombinationParser**
 
-创建 `src/KioskWin/Core/KeyCombinationParser.cs`：
+Create `src/KioskWin/Core/KeyCombinationParser.cs`:
 
 ```csharp
 using System.Windows.Forms;
@@ -578,15 +578,15 @@ public static class KeyCombinationParser
 }
 ```
 
-- [ ] **Step 4: 运行测试确认通过**
+- [ ] **Step 4: Run tests to confirm they pass**
 
 ```bash
 dotnet test --filter "FullyQualifiedName~KeyCombinationParserTests"
 ```
 
-预期：5 个测试通过。
+Expected: 5 tests pass.
 
-- [ ] **Step 5: 提交**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add -A
@@ -604,14 +604,14 @@ git commit -m "feat(core): add KeyCombinationParser (string -> WinForms Keys)"
 **Interfaces:**
 - Consumes: `Microsoft.Extensions.Configuration.IConfiguration`
 - Produces: `KioskWin.Core.KioskConfig`
-  - 可写属性：`Url`、`AdminKeyCombination`、`AdminPasswordHash`、`PasswordSalt`、`RetryIntervalSeconds`、`TopMost`、`ShowInTaskbar`、`UserDataFolder`
-  - 计算属性：`bool IsUrlValid`、`TimeSpan RetryInterval`
-  - `static KioskConfig Load(IConfiguration configuration)` — 绑定 + 默认值兜底（可测）
-  - `static KioskConfig LoadFromFile(string jsonFilePath)` — 读 JSON 文件（程序用）
+  - Writable properties: `Url`, `AdminKeyCombination`, `AdminPasswordHash`, `PasswordSalt`, `RetryIntervalSeconds`, `TopMost`, `ShowInTaskbar`, `UserDataFolder`
+  - Computed properties: `bool IsUrlValid`, `TimeSpan RetryInterval`
+  - `static KioskConfig Load(IConfiguration configuration)` — bind settings and apply defaults (testable)
+  - `static KioskConfig LoadFromFile(string jsonFilePath)` — read a JSON file (used by the application)
 
-- [ ] **Step 1: 写失败测试**
+- [ ] **Step 1: Write a failing test**
 
-创建 `tests/KioskWin.Tests/KioskConfigTests.cs`：
+Create `tests/KioskWin.Tests/KioskConfigTests.cs`:
 
 ```csharp
 using Microsoft.Extensions.Configuration;
@@ -664,7 +664,7 @@ public class KioskConfigTests
     {
         var cfg = KioskConfig.Load(ConfigFromMemory(("Url", "not a url")));
         Assert.False(cfg.IsUrlValid);
-        // 非法 URL 保留原值，不替换
+        // Preserve an invalid URL as-is.
         Assert.Equal("not a url", cfg.Url);
     }
 
@@ -680,10 +680,10 @@ public class KioskConfigTests
     }
 
     [Theory]
-    [InlineData(0, 10)]      // 非法 -> 默认 10
-    [InlineData(-5, 10)]     // 非法 -> 默认 10
+    [InlineData(0, 10)]      // Invalid -> default to 10
+    [InlineData(-5, 10)]     // Invalid -> default to 10
     [InlineData(3, 3)]
-    [InlineData(99999, 600)] // 上限
+    [InlineData(99999, 600)] // Upper limit
     public void RetryInterval_clamped(int input, int expectedSeconds)
     {
         var cfg = KioskConfig.Load(ConfigFromMemory(
@@ -694,17 +694,17 @@ public class KioskConfigTests
 }
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [ ] **Step 2: Run tests to confirm failure**
 
 ```bash
 dotnet test --filter "FullyQualifiedName~KioskConfigTests"
 ```
 
-预期：失败，`KioskConfig` 未定义。
+Expected: failure because `KioskConfig` is undefined.
 
-- [ ] **Step 3: 实现 KioskConfig**
+- [ ] **Step 3: Implement KioskConfig**
 
-创建 `src/KioskWin/Core/KioskConfig.cs`：
+Create `src/KioskWin/Core/KioskConfig.cs`:
 
 ```csharp
 using Microsoft.Extensions.Configuration;
@@ -733,7 +733,7 @@ public sealed class KioskConfig
         var cfg = new KioskConfig();
         configuration.Bind(cfg);
 
-        // 兜底默认值：Bind 会用 JSON 值覆盖上面的默认值；这里修正非法/空值
+        // Bind overwrites the defaults above with JSON values; normalize invalid or empty values here.
         if (string.IsNullOrWhiteSpace(cfg.AdminKeyCombination))
             cfg.AdminKeyCombination = "Ctrl+Shift+Alt+Q";
         if (string.IsNullOrWhiteSpace(cfg.UserDataFolder))
@@ -754,15 +754,15 @@ public sealed class KioskConfig
 }
 ```
 
-- [ ] **Step 4: 运行测试确认通过**
+- [ ] **Step 4: Run tests to confirm they pass**
 
 ```bash
 dotnet test --filter "FullyQualifiedName~KioskConfigTests"
 ```
 
-预期：全部通过。
+Expected: all tests pass.
 
-- [ ] **Step 5: 提交**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add -A
@@ -783,14 +783,14 @@ git commit -m "feat(core): add KioskConfig with validation and safe defaults"
   - `interface IRetryScheduler { bool IsRunning { get; } void Start(TimeSpan interval, Action onTick); void Stop(); }`
   - `enum RetryState { Idle, Retrying }`
   - `sealed class RetryController`：ctor `(TimeSpan interval, IRetryScheduler scheduler)`；`RetryState State { get; }`；`event Action? ShouldRetry`；`void ReportFailure()`；`void ReportSuccess()`
-  - `sealed class FormsRetryScheduler : IRetryScheduler`（基于 `System.Windows.Forms.Timer`，UI 线程触发）
-- 行为：`ReportFailure` 从 Idle 进入 Retrying 并启动调度器；每次 tick 触发 `ShouldRetry`；`ReportSuccess` 停调度器并回 Idle；重复 `ReportFailure` 不会重复启动。
+  - `sealed class FormsRetryScheduler : IRetryScheduler` (based on `System.Windows.Forms.Timer`, ticks on the UI thread)
+- Behavior: `ReportFailure` transitions from Idle to Retrying and starts the scheduler; each tick invokes `ShouldRetry`; `ReportSuccess` stops the scheduler and returns to Idle; repeated `ReportFailure` calls do not restart it.
 
-> 说明：规格散文提到 `Idle/Waiting/Retrying` 三态，但 `Waiting` 不携带任何可测的独立行为，故按 YAGNI 合并为 `Idle/Retrying` 两态；状态机行为由 Task 6 的测试完整覆盖。
+> Note: The specification narrative mentions three states (`Idle/Waiting/Retrying`), but `Waiting` has no independently testable behavior, so YAGNI merges it into a two-state `Idle/Retrying` model; Task 6 tests cover the state machine behavior.
 
-- [ ] **Step 1: 写失败测试**
+- [ ] **Step 1: Write a failing test**
 
-创建 `tests/KioskWin.Tests/RetryControllerTests.cs`：
+Create `tests/KioskWin.Tests/RetryControllerTests.cs`:
 
 ```csharp
 using KioskWin.Core;
@@ -871,7 +871,7 @@ public class RetryControllerTests
         var ctrl = new RetryController(TimeSpan.FromSeconds(7), sched);
 
         ctrl.ReportFailure();
-        ctrl.ReportFailure(); // 再次失败应被忽略
+        ctrl.ReportFailure(); // A subsequent failure should be ignored.
 
         Assert.Equal(RetryState.Retrying, ctrl.State);
         Assert.Equal(TimeSpan.FromSeconds(7), sched.LastInterval);
@@ -879,17 +879,17 @@ public class RetryControllerTests
 }
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [ ] **Step 2: Run tests to confirm failure**
 
 ```bash
 dotnet test --filter "FullyQualifiedName~RetryControllerTests"
 ```
 
-预期：失败，`RetryController` / `IRetryScheduler` 未定义。
+Expected: failure because `RetryController` / `IRetryScheduler` are undefined.
 
-- [ ] **Step 3: 实现 RetryController + IRetryScheduler**
+- [ ] **Step 3: Implement RetryController + IRetryScheduler**
 
-创建 `src/KioskWin/Core/RetryController.cs`：
+Create `src/KioskWin/Core/RetryController.cs`:
 
 ```csharp
 namespace KioskWin.Core;
@@ -936,9 +936,9 @@ public sealed class RetryController
 }
 ```
 
-- [ ] **Step 4: 实现生产调度器 FormsRetryScheduler**
+- [ ] **Step 4: Implement the production FormsRetryScheduler**
 
-创建 `src/KioskWin/Core/FormsRetryScheduler.cs`：
+Create `src/KioskWin/Core/FormsRetryScheduler.cs`:
 
 ```csharp
 using System.Windows.Forms;
@@ -972,15 +972,15 @@ public sealed class FormsRetryScheduler : IRetryScheduler
 }
 ```
 
-- [ ] **Step 5: 运行全部测试确认通过**
+- [ ] **Step 5: Run all tests to confirm they pass**
 
 ```bash
 dotnet test
 ```
 
-预期：所有 Core 测试通过（FileLogger / PasswordHasher / KeyCombinationParser / KioskConfig / RetryController）。
+Expected: all Core tests pass (FileLogger / PasswordHasher / KeyCombinationParser / KioskConfig / RetryController).
 
-- [ ] **Step 6: 提交**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add -A
@@ -995,15 +995,15 @@ git commit -m "feat(core): add RetryController state machine and FormsRetrySched
 - Create: `src/KioskWin/Forms/RetryOverlay.cs`
 
 **Interfaces:**
-- Produces: `KioskWin.Forms.RetryOverlay`（继承 `UserControl`，`Dock = Fill`）
+- Produces: `KioskWin.Forms.RetryOverlay` (inherits `UserControl`, `Dock = Fill`)
   - `void ShowRetry()` / `void ShowConfigError()` / `void ShowRuntimeMissing()` / `void ShowGenericError(string? detail = null)`
-- 消费：`System.Windows.Forms`、`System.Drawing`。
+- Consumes: `System.Windows.Forms`, `System.Drawing`.
 
-> 说明：规格第 6 节指出 `RetryOverlay` 是**唯一**全屏遮罩组件，通过不同方法切换文案。本控件用代码构造（无 `.Designer.cs`）。
+> Note: Section 6 of the specification states that `RetryOverlay` is the **only** full-screen overlay component, with text changed through different methods. Construct this control in code (without `.Designer.cs`).
 
-- [ ] **Step 1: 实现 RetryOverlay**
+- [ ] **Step 1: Implement RetryOverlay**
 
-创建 `src/KioskWin/Forms/RetryOverlay.cs`：
+Create `src/KioskWin/Forms/RetryOverlay.cs`:
 
 ```csharp
 using System.Drawing;
@@ -1042,22 +1042,22 @@ public sealed class RetryOverlay : UserControl
     private void SetMessage(string title, string detail)
         => _label.Text = string.IsNullOrEmpty(detail) ? title : $"{title}\n\n{detail}";
 
-    public void ShowRetry() => SetMessage("正在重试…", "网络连接失败，正在自动重试");
-    public void ShowConfigError() => SetMessage("配置错误", "URL 配置非法，请联系管理员");
-    public void ShowRuntimeMissing() => SetMessage("缺少 WebView2 运行时", "未检测到 WebView2 运行时，请联系管理员安装");
-    public void ShowGenericError(string? detail = null) => SetMessage("程序出错", detail ?? "发生未知错误，请查看日志");
+    public void ShowRetry() => SetMessage("Retrying…", "Network connection failed. Retrying automatically.");
+    public void ShowConfigError() => SetMessage("Configuration error", "The URL is invalid. Contact your administrator.");
+    public void ShowRuntimeMissing() => SetMessage("WebView2 runtime missing", "WebView2 runtime was not detected. Contact your administrator to install it.");
+    public void ShowGenericError(string? detail = null) => SetMessage("Program error", detail ?? "An unknown error occurred. Check the log.");
 }
 ```
 
-- [ ] **Step 2: 构建确认编译通过**
+- [ ] **Step 2: Build to confirm compilation succeeds**
 
 ```bash
 dotnet build src/KioskWin/KioskWin.csproj
 ```
 
-预期：0 错误。
+Expected: 0 errors.
 
-- [ ] **Step 3: 提交**
+- [ ] **Step 3: Commit**
 
 ```bash
 git add -A
@@ -1075,12 +1075,12 @@ git commit -m "feat(forms): add reusable RetryOverlay control"
 - Consumes: `KioskWin.Core.KioskConfig`、`KioskWin.Core.PasswordHasher`
 - Produces:
   - `enum KioskWin.Forms.AdminAction { None, Exit, Reload, DevTools, Unlock }`
-  - `sealed class AdminDialog : Form`：ctor `(KioskConfig config, Action<string> logFailure)`；属性 `AdminAction Result`
-- 行为：密码框输入 → 点"验证"按钮 → `PasswordHasher.Verify` 比对 `config.AdminPasswordHash`/`config.PasswordSalt`；通过则启用 4 个工具按钮（退出/重载/DevTools/解除锁定）；失败则提示 + 清空 + 写日志。
+  - `sealed class AdminDialog : Form`: ctor `(KioskConfig config, Action<string> logFailure)`; property `AdminAction Result`
+- Behavior: enter a password → click "Verify" → `PasswordHasher.Verify` checks `config.AdminPasswordHash`/`config.PasswordSalt`; on success, enable four action buttons (Exit/Reload/DevTools/Unlock); on failure, show a message, clear the field, and log the failure.
 
-- [ ] **Step 1: 实现 AdminDialog**
+- [ ] **Step 1: Implement AdminDialog**
 
-创建 `src/KioskWin/Forms/AdminDialog.cs`：
+Create `src/KioskWin/Forms/AdminDialog.cs`:
 
 ```csharp
 using System.Drawing;
@@ -1117,7 +1117,7 @@ public sealed class AdminDialog : Form
         _config = config;
         _logFailure = logFailure;
 
-        Text = "KioskWin 管理员";
+        Text = "KioskWin Administrator";
         FormBorderStyle = FormBorderStyle.FixedDialog;
         StartPosition = FormStartPosition.CenterParent;
         MaximizeBox = false;
@@ -1126,7 +1126,7 @@ public sealed class AdminDialog : Form
 
         var lbl = new Label
         {
-            Text = "管理员密码：",
+            Text = "Admin password:",
             Location = new Point(20, 25),
             AutoSize = true,
         };
@@ -1142,17 +1142,17 @@ public sealed class AdminDialog : Form
             if (e.KeyCode == Keys.Enter) { VerifyPassword(); e.SuppressKeyPress = true; }
         };
 
-        _verifyButton = new Button { Text = "验证", Location = new Point(250, 85), Size = new Size(90, 30) };
+        _verifyButton = new Button { Text = "Verify", Location = new Point(250, 85), Size = new Size(90, 30) };
         _verifyButton.Click += (_, _) => VerifyPassword();
 
-        _exitButton = MakeActionButton("退出程序", 20, AdminAction.Exit);
-        _reloadButton = MakeActionButton("重载页面", 110, AdminAction.Reload);
-        _devToolsButton = MakeActionButton("打开 DevTools", 200, AdminAction.DevTools);
-        _unlockButton = MakeActionButton("解除锁定", 20, AdminAction.Unlock);
+        _exitButton = MakeActionButton("Exit", 20, AdminAction.Exit);
+        _reloadButton = MakeActionButton("Reload page", 110, AdminAction.Reload);
+        _devToolsButton = MakeActionButton("Open DevTools", 200, AdminAction.DevTools);
+        _unlockButton = MakeActionButton("Unlock", 20, AdminAction.Unlock);
 
         var unlockLabel = new Label
         {
-            Text = "（解除锁定：临时变为可移动的普通窗口，便于维护）",
+            Text = "(Unlock: temporarily switch to a movable window for maintenance.)",
             Location = new Point(20, 195),
             Size = new Size(320, 60),
             ForeColor = Color.Gray,
@@ -1201,13 +1201,13 @@ public sealed class AdminDialog : Form
             SetActionButtonsEnabled(true);
             _passwordBox.Enabled = false;
             _verifyButton.Enabled = false;
-            _ = MessageBox.Show(this, "验证通过，请选择操作。", "KioskWin",
+            _ = MessageBox.Show(this, "Verification successful. Select an action.", "KioskWin",
                 MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
         else
         {
             _logFailure("admin auth failed");
-            MessageBox.Show(this, "密码错误", "KioskWin",
+            MessageBox.Show(this, "Incorrect password.", "KioskWin",
                 MessageBoxButtons.OK, MessageBoxIcon.Warning);
             _passwordBox.Clear();
         }
@@ -1215,15 +1215,15 @@ public sealed class AdminDialog : Form
 }
 ```
 
-- [ ] **Step 2: 构建确认编译通过**
+- [ ] **Step 2: Build to confirm compilation succeeds**
 
 ```bash
 dotnet build src/KioskWin/KioskWin.csproj
 ```
 
-预期：0 错误。
+Expected: 0 errors.
 
-- [ ] **Step 3: 提交**
+- [ ] **Step 3: Commit**
 
 ```bash
 git add -A
@@ -1232,20 +1232,20 @@ git commit -m "feat(forms): add AdminDialog with password gate and tool actions"
 
 ---
 
-## Task 9: MainForm（Forms，集成）
+## Task 9: MainForm (Forms integration)
 
 **Files:**
 - Create: `src/KioskWin/Forms/MainForm.cs`
 
 **Interfaces:**
 - Consumes: `KioskConfig`、`FileLogger`、`KeyCombinationParser`、`RetryController`、`FormsRetryScheduler`、`RetryOverlay`、`AdminDialog`/`AdminAction`、`Microsoft.Web.WebView2.WinForms.WebView2`、`CoreWebView2Environment`。
-- Produces: `KioskWin.Forms.MainForm`，ctor `(KioskConfig config, FileLogger logger)`。`Program.cs`（Task 10）会 `Application.Run(new MainForm(config, logger))`。
+- Produces: `KioskWin.Forms.MainForm`, ctor `(KioskConfig config, FileLogger logger)`. `Program.cs` (Task 10) calls `Application.Run(new MainForm(config, logger))`.
 
-> 覆盖需求 F1、F3、F4、F5、F7、F8 的窗口侧。本任务无单元测试（Win32/WebView2 行为），用手动 QA 清单（Task 11）覆盖。
+> Covers the window-side requirements F1, F3, F4, F5, F7, and F8. This task has no unit tests (Win32/WebView2 behavior); use the manual QA checklist (Task 11).
 
-- [ ] **Step 1: 实现 MainForm**
+- [ ] **Step 1: Implement MainForm**
 
-创建 `src/KioskWin/Forms/MainForm.cs`：
+Create `src/KioskWin/Forms/MainForm.cs`:
 
 ```csharp
 using Microsoft.Web.WebView2.Core;
@@ -1277,12 +1277,12 @@ public sealed class MainForm : Form
         _logger = logger;
         _adminCombo = KeyCombinationParser.Parse(config.AdminKeyCombination);
 
-        // F3 无边框全屏 + 无最小化/关闭按钮
+        // F3: borderless full-screen with no minimize or close buttons
         FormBorderStyle = FormBorderStyle.None;
         WindowState = FormWindowState.Maximized;
         StartPosition = FormStartPosition.CenterScreen;
 
-        // F5 防切到后台
+        // F5: prevent switching to the background
         TopMost = config.TopMost;
         ShowInTaskbar = config.ShowInTaskbar;
         KeyPreview = true;
@@ -1304,7 +1304,7 @@ public sealed class MainForm : Form
         Deactivate += OnDeactivate;     // F5
     }
 
-    // ---- WebView2 初始化与导航 ----
+    // ---- WebView2 initialization and navigation ----
 
     private async void OnLoad(object? sender, EventArgs e)
     {
@@ -1326,7 +1326,7 @@ public sealed class MainForm : Form
         }
         catch (Exception ex)
         {
-            // 未检测到 WebView2 运行时等情况
+            // For example, when the WebView2 runtime is not detected.
             _logger.Log($"[webview2 init] {ex}");
             _overlay.ShowRuntimeMissing();
             _overlay.Visible = true;
@@ -1392,7 +1392,7 @@ public sealed class MainForm : Form
     private void OnProcessFailed(object? sender, CoreWebView2ProcessFailedEventArgs e)
     {
         _logger.Log($"[webview2] process failed: {e.ProcessFailedKind}");
-        _overlay.ShowGenericError("网页渲染进程崩溃，正在重试…");
+        _overlay.ShowGenericError("The web page rendering process crashed. Retrying…");
         _overlay.Visible = true;
         _overlay.BringToFront();
         _retry.ReportFailure();
@@ -1414,11 +1414,11 @@ public sealed class MainForm : Form
         }
     }
 
-    // ---- 锁定行为 ----
+    // ---- Lock behavior ----
 
     private void OnFormClosing(object? sender, FormClosingEventArgs e)
     {
-        // F4：拦截用户触发的关闭（Alt+F4 / 关闭按钮），除非管理员授权
+        // F4: intercept user-initiated closing (Alt+F4 / close button) unless authorized by an administrator.
         if (!_authorizedClose && e.CloseReason == CloseReason.UserClosing)
         {
             e.Cancel = true;
@@ -1428,19 +1428,19 @@ public sealed class MainForm : Form
 
     private void OnDeactivate(object? sender, EventArgs e)
     {
-        // F5：失焦后抢回前台
+        // F5: reclaim the foreground after losing focus.
         if (TopMost)
             BeginInvoke(() => Activate());
     }
 
-    // ---- 管理员逃生通道（F8）----
+    // ---- Administrator escape path (F8) ----
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
         if (_adminCombo != Keys.None && keyData == _adminCombo)
         {
             ShowAdminDialog();
-            return true; // 吞掉按键
+            return true; // Consume the keystroke.
         }
         return base.ProcessCmdKey(ref msg, keyData);
     }
@@ -1499,16 +1499,16 @@ public sealed class MainForm : Form
 }
 ```
 
-- [ ] **Step 2: 构建 + 跑测试（确保未破坏 Core 测试）**
+- [ ] **Step 2: Build + run tests (ensure Core tests still pass)**
 
 ```bash
 dotnet build KioskWin.sln
 dotnet test
 ```
 
-预期：构建 0 错误；Core 测试仍全部通过（MainForm 无单测）。
+Expected: build has 0 errors; all Core tests still pass (MainForm has no unit tests).
 
-- [ ] **Step 3: 提交**
+- [ ] **Step 3: Commit**
 
 ```bash
 git add -A
@@ -1517,20 +1517,20 @@ git commit -m "feat(forms): add MainForm (fullscreen, lockdown, retry, admin ent
 
 ---
 
-## Task 10: Program.cs 最终入口（Forms）
+## Task 10: Final Program.cs entry point (Forms)
 
 **Files:**
-- Modify: `src/KioskWin/Program.cs`（替换 Task 1 的占位）
+- Modify: `src/KioskWin/Program.cs` (replace the Task 1 placeholder)
 
 **Interfaces:**
 - Consumes: `KioskConfig.LoadFromFile`、`FileLogger`、`Forms.MainForm`。
-- Produces: 完整程序入口，覆盖 F8 的 `--hash-password` CLI、F9 单实例、N3 异常兜底。
+- Produces: Complete application entry point, covering the F8 `--hash-password` CLI, F9 single-instance behavior, and N3 exception handling.
 
-> 覆盖需求 F2（配置）、F8（生成哈希 CLI）、F9（单实例）、N3（不静默崩溃）。
+> Covers requirements F2 (configuration), F8 (hash-generation CLI), F9 (single instance), and N3 (no silent crashes).
 
-- [ ] **Step 1: 替换 Program.cs 为最终版本**
+- [ ] **Step 1: Replace Program.cs with the final version**
 
-将 `src/KioskWin/Program.cs` 全文替换为：
+Replace the entire contents of `src/KioskWin/Program.cs` with:
 
 ```csharp
 using System.Diagnostics;
@@ -1547,13 +1547,13 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
-        // F8：CLI 模式生成密码哈希（不启动 UI）
+        // F8: generate a password hash in CLI mode without starting the UI
         if (TryHandleHashPassword(args))
             return;
 
         ApplicationConfiguration.Initialize();
 
-        // F9：单实例——已有实例则尝试置前并退出
+        // F9: single instance — bring the existing instance to the foreground and exit
         using var mutex = new Mutex(initiallyOwned: true, MutexName, out bool createdNew);
         if (!createdNew)
         {
@@ -1561,7 +1561,7 @@ internal static class Program
             return;
         }
 
-        // N3：全局异常兜底，避免静默崩溃
+        // N3: handle unhandled exceptions globally to avoid silent crashes
         Application.ThreadException += (_, e) => LogException(e.Exception, "UI thread exception");
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
             LogException(e.ExceptionObject as Exception, "AppDomain unhandled");
@@ -1578,7 +1578,7 @@ internal static class Program
         {
             LogException(ex, "startup");
             MessageBox.Show(
-                "程序启动失败，请查看日志：\n" + ex.Message,
+                "The program failed to start. Check the log:\n" + ex.Message,
                 "KioskWin",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
@@ -1591,7 +1591,7 @@ internal static class Program
             string.Equals(args[0], "--hash-password", StringComparison.OrdinalIgnoreCase))
         {
             var result = PasswordHasher.Generate(args[1]);
-            Console.WriteLine("把下面两行填入 appsettings.json：");
+            Console.WriteLine("Add these two lines to appsettings.json:");
             Console.WriteLine("  \"AdminPasswordHash\": \"" + result.Hash + "\",");
             Console.WriteLine("  \"PasswordSalt\": \"" + result.Salt + "\"");
             return true;
@@ -1613,7 +1613,7 @@ internal static class Program
         }
         catch
         {
-            // best-effort，置前失败不影响单实例退出逻辑
+            // Best effort: failure to bring the window forward does not affect single-instance exit logic.
         }
     }
 
@@ -1625,7 +1625,7 @@ internal static class Program
         }
         catch
         {
-            // 日志本身失败不要再抛，避免二次异常
+            // Do not rethrow logging failures and cause a second exception.
         }
     }
 
@@ -1639,23 +1639,23 @@ internal static class Program
 }
 ```
 
-- [ ] **Step 2: 构建**
+- [ ] **Step 2: Build**
 
 ```bash
 dotnet build KioskWin.sln
 ```
 
-预期：0 错误。
+Expected: 0 errors.
 
-- [ ] **Step 3: 手动验证 CLI 模式**
+- [ ] **Step 3: Manually verify CLI mode**
 
 ```bash
 dotnet run --project src/KioskWin/KioskWin.csproj -- --hash-password mysecret
 ```
 
-预期：打印两行 `AdminPasswordHash` / `PasswordSalt`，程序不弹窗、立即退出。
+Expected: print the two lines `AdminPasswordHash` / `PasswordSalt`; the application does not open a window and exits immediately.
 
-- [ ] **Step 4: 提交**
+- [ ] **Step 4: Commit**
 
 ```bash
 git add -A
@@ -1664,29 +1664,30 @@ git commit -m "feat: wire Program entry (hash-password CLI, single-instance, exc
 
 ---
 
-## Task 11: 开机自启脚本 + 发布 + 手动 QA
+## Task 11: Startup script + publish + manual QA
 
 **Files:**
 - Create: `src/KioskWin/install-shortcut.ps1`
-- (运行) 发布产物 + 手动 QA 清单
+- (Run) publish output + manual QA checklist
 
 **Interfaces:**
-- Produces: `install-shortcut.ps1`（在用户「启动」文件夹创建快捷方式）；发布命令；手动 QA 通过。
+- Produces: `install-shortcut.ps1` (creates a shortcut in the user's Startup folder); publish command; completed manual QA.
 
-> 覆盖需求 F6（开机自启）、N1（自包含单文件）。这是部署与验收任务。
+> Covers requirements F6 (startup on boot) and N1 (self-contained single file). This is a deployment and acceptance task.
 
-- [ ] **Step 1: 写 install-shortcut.ps1**
+- [ ] **Step 1: Write install-shortcut.ps1**
 
-创建 `src/KioskWin/install-shortcut.ps1`：
+Create `src/KioskWin/install-shortcut.ps1`:
 
 ```powershell
-# 在当前用户的"启动"文件夹创建 KioskWin 开机自启快捷方式
-# 用法：在发布产物目录（含 KioskWin.exe）下运行 powershell -ExecutionPolicy Bypass -File .\install-shortcut.ps1
+# Create a KioskWin startup shortcut in the current user's Startup folder.
+# Usage: Run powershell -ExecutionPolicy Bypass -File .\install-shortcut.ps1
+# from the publish output directory containing KioskWin.exe.
 $ErrorActionPreference = 'Stop'
 
 $exe = Join-Path $PSScriptRoot 'KioskWin.exe'
 if (-not (Test-Path $exe)) {
-    throw "未找到 $exe，请在发布产物目录运行此脚本。"
+    throw "Could not find $exe. Run this script from the publish output directory."
 }
 
 $startup = [Environment]::GetFolderPath('Startup')
@@ -1696,18 +1697,18 @@ $shell = New-Object -ComObject WScript.Shell
 $shortcut = $shell.CreateShortcut($shortcutPath)
 $shortcut.TargetPath = $exe
 $shortcut.WorkingDirectory = $PSScriptRoot
-$shortcut.WindowStyle = 3   # 最大化
+$shortcut.WindowStyle = 3   # Maximized
 $shortcut.Description = 'KioskWin'
 $shortcut.Save()
 
-Write-Host "已创建开机自启快捷方式：$shortcutPath"
+Write-Host "Created startup shortcut: $shortcutPath"
 ```
 
-> 注意：发布后该脚本应与 `KioskWin.exe` 同目录。`dotnet publish` 默认不会把 `.ps1` 复制到输出。下一步用发布参数复制它。
+> Note: After publishing, this script should be next to `KioskWin.exe`. `dotnet publish` does not copy `.ps1` files to the output by default. The next step adds a publish setting to copy it.
 
-- [ ] **Step 2: 让 csproj 把脚本复制到发布输出**
+- [ ] **Step 2: Configure the csproj to copy the script to publish output**
 
-在 `src/KioskWin/KioskWin.csproj` 的 `</Project>` 之前插入：
+Insert this before `</Project>` in `src/KioskWin/KioskWin.csproj`:
 
 ```xml
   <ItemGroup>
@@ -1717,7 +1718,7 @@ Write-Host "已创建开机自启快捷方式：$shortcutPath"
   </ItemGroup>
 ```
 
-- [ ] **Step 3: 发布为自包含单文件**
+- [ ] **Step 3: Publish as a self-contained single file**
 
 ```bash
 dotnet publish src/KioskWin/KioskWin.csproj `
@@ -1729,41 +1730,41 @@ dotnet publish src/KioskWin/KioskWin.csproj `
   -o publish
 ```
 
-（Linux/macOS shell 去掉反引号换行，写成一行的 `dotnet publish ... -o publish`。）
+On Linux/macOS shells, remove the backtick line continuations and write the `dotnet publish ... -o publish` command on one line.
 
-预期：`publish/` 下生成 `KioskWin.exe`（单文件）+ `appsettings.json` + `install-shortcut.ps1`。
+Expected: `publish/` contains `KioskWin.exe` (single file) + `appsettings.json` + `install-shortcut.ps1`.
 
-> **验证 WebView2 单文件兼容**：把 `publish\` 拷到一台干净的 Win10/11 机器（已装 Edge/WebView2 运行时）双击 `KioskWin.exe`，确认能正常初始化 WebView2（出现网页或重试遮罩，而非崩溃）。若单文件模式下 WebView2 无法初始化（`WebView2Loader.dll` 解压问题），退路：去掉 `-p:PublishSingleFile=true` 重新发布（仍 `--self-contained`，多文件目录部署），并相应把 `install-shortcut.ps1` 指向 `KioskWin.exe`。
+> **Verify WebView2 single-file compatibility**: Copy `publish\` to a clean Win10/11 machine (with Edge/WebView2 Runtime installed), double-click `KioskWin.exe`, and confirm WebView2 initializes successfully (the page or retry overlay appears instead of a crash). If WebView2 fails to initialize in single-file mode (for example, due to `WebView2Loader.dll` extraction), republish without `-p:PublishSingleFile=true` as a fallback (still `--self-contained`, but deployed as a multi-file directory), and keep `install-shortcut.ps1` targeting `KioskWin.exe`.
 
-- [ ] **Step 4: 配置管理员密码（关键，否则无法维护退出）**
+- [ ] **Step 4: Configure the administrator password (important; otherwise maintenance exit is unavailable)**
 
-在发布目录运行：
+Run from the publish directory:
 
 ```bash
-./KioskWin.exe --hash-password 你的密码
+./KioskWin.exe --hash-password your-password
 ```
 
-把输出的两行 `AdminPasswordHash` / `PasswordSalt` 填入 `appsettings.json`，保存。
+Add the two output lines `AdminPasswordHash` / `PasswordSalt` to `appsettings.json` and save it.
 
-- [ ] **Step 5: 在真实工控机或 Win10/11 虚拟机过手动 QA 清单**
+- [ ] **Step 5: Complete the manual QA checklist on a physical industrial PC or Win10/11 virtual machine**
 
-在 `publish\` 目录双击 `KioskWin.exe`（或运行 `install-shortcut.ps1` 后重启），逐项核对：
+Double-click `KioskWin.exe` in `publish\` (or run `install-shortcut.ps1` and reboot), then verify each item:
 
-- [ ] 全屏覆盖主屏，无标题栏与最小化/关闭按钮
-- [ ] 按 Alt+F4 无效，窗口不关闭
-- [ ] 任务栏无条目
-- [ ] 窗口始终置顶；Alt+Tab 切换后本窗口仍可见在最前
-- [ ] 拔网线/断网 → 出现"正在重试…"遮罩；恢复网络 → 自动回到网页
-- [ ] 按 Ctrl+Shift+Alt+Q 弹出密码框
-- [ ] 错误密码不通过、提示并清空；正确密码后出现 4 个工具按钮
-- [ ] 点"退出程序"可正常退出（之后 Alt+F4 仍被拦，符合预期）
-- [ ] 点"重载页面"会热重读 `appsettings.json`（改 URL 后生效）
-- [ ] 点"打开 DevTools"弹出 DevTools 窗口
-- [ ] 点"解除锁定"窗口变为可移动普通窗口
-- [ ] 开机后自动启动（运行 `install-shortcut.ps1` 后重启验证）
-- [ ] 程序运行时再次双击 exe，只激活已有窗口（不新开）
+- [ ] Full-screen over the primary display, with no title bar or minimize/close buttons
+- [ ] Alt+F4 has no effect; the window does not close
+- [ ] No taskbar entry
+- [ ] Window stays on top; after Alt+Tab, the window remains visible in the foreground
+- [ ] Disconnect the network → retry overlay appears; restore the network → page returns automatically
+- [ ] Press Ctrl+Shift+Alt+Q to open the password dialog
+- [ ] Incorrect password is rejected, reported, and cleared; correct password shows four action buttons
+- [ ] Click "Exit" to close normally (Alt+F4 remains intercepted as expected)
+- [ ] Click "Reload page" to reload `appsettings.json` (a changed URL takes effect)
+- [ ] Click "Open DevTools" to open the DevTools window
+- [ ] Click "Unlock" to switch the window to a movable normal window
+- [ ] Application starts on boot (verify by running `install-shortcut.ps1` and rebooting)
+- [ ] Double-clicking the exe while the app is running activates the existing window only (no second instance)
 
-- [ ] **Step 6: 提交**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add -A
@@ -1772,9 +1773,9 @@ git commit -m "feat: add install-shortcut.ps1 and self-contained publish config"
 
 ---
 
-## 完成标志
+## Completion criteria
 
-- [ ] 所有任务 commit 完成；`dotnet test` 全绿（Core 单测）。
-- [ ] `dotnet publish` 产物可独立运行（无需预装 .NET）。
-- [ ] 手动 QA 清单全部勾选。
-- [ ] `appsettings.json` 已填入真实密码哈希（非空）。
+- [ ] All tasks are committed; `dotnet test` passes (Core unit tests).
+- [ ] `dotnet publish` output runs independently (no preinstalled .NET required).
+- [ ] All manual QA checklist items are checked.
+- [ ] `appsettings.json` contains a real, non-empty password hash.

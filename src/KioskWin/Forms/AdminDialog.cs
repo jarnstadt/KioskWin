@@ -32,7 +32,7 @@ public sealed class AdminDialog : Form
         _config = config;
         _logFailure = logFailure;
 
-        Text = "KioskWin 管理员";
+        Text = "KioskWin Administrator";
         FormBorderStyle = FormBorderStyle.FixedDialog;
         StartPosition = FormStartPosition.CenterParent;
         MaximizeBox = false;
@@ -41,7 +41,7 @@ public sealed class AdminDialog : Form
 
         var lbl = new Label
         {
-            Text = "管理员密码：",
+            Text = "Admin password:",
             Location = new Point(20, 25),
             AutoSize = true,
         };
@@ -53,17 +53,17 @@ public sealed class AdminDialog : Form
             PasswordChar = '*',
         };
 
-        _verifyButton = new Button { Text = "验证", Location = new Point(250, 85), Size = new Size(90, 30) };
+        _verifyButton = new Button { Text = "Verify", Location = new Point(250, 85), Size = new Size(90, 30) };
         _verifyButton.Click += (_, _) => VerifyPassword();
 
-        _exitButton = MakeActionButton("退出程序", 20, 120, AdminAction.Exit);
-        _reloadButton = MakeActionButton("重载页面", 190, 120, AdminAction.Reload);
-        _devToolsButton = MakeActionButton("打开 DevTools", 20, 165, AdminAction.DevTools);
-        _unlockButton = MakeActionButton("解除锁定", 190, 165, AdminAction.Unlock);
+        _exitButton = MakeActionButton("Exit", 20, 120, AdminAction.Exit);
+        _reloadButton = MakeActionButton("Reload page", 190, 120, AdminAction.Reload);
+        _devToolsButton = MakeActionButton("Open DevTools", 20, 165, AdminAction.DevTools);
+        _unlockButton = MakeActionButton("Unlock", 190, 165, AdminAction.Unlock);
 
         var unlockLabel = new Label
         {
-            Text = "（解除锁定：临时变为可移动的普通窗口，便于维护）",
+            Text = "(Unlock: temporarily switch to a movable window for maintenance.)",
             Location = new Point(20, 210),
             Size = new Size(320, 60),
             ForeColor = Color.Gray,
@@ -112,13 +112,13 @@ public sealed class AdminDialog : Form
             SetActionButtonsEnabled(true);
             _passwordBox.Enabled = false;
             _verifyButton.Enabled = false;
-            _ = MessageBox.Show(this, "验证通过，请选择操作。", "KioskWin",
+            _ = MessageBox.Show(this, "Verification successful. Select an action.", "KioskWin",
                 MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
         else
         {
             _logFailure("admin auth failed");
-            MessageBox.Show(this, "密码错误", "KioskWin",
+            MessageBox.Show(this, "Incorrect password.", "KioskWin",
                 MessageBoxButtons.OK, MessageBoxIcon.Warning);
             _passwordBox.Clear();
         }

@@ -62,6 +62,8 @@ build.bat
 
 Use `build.bat notest` to skip tests during packaging.
 
+GitHub Actions also builds and tests the project on pushes and pull requests to `main` or `master`. Run the **Build** workflow manually with `workflow_dispatch` to produce downloadable `KioskWin-win-x64` artifacts.
+
 ## Deployment
 
 After packaging, copy `publish\` or `KioskWin-win-x64.zip` to the target machine, edit `appsettings.json`, then run:

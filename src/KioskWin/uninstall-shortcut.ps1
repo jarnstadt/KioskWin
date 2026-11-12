@@ -1,5 +1,6 @@
-# 删除当前用户的"启动"文件夹中的 KioskWin 开机自启快捷方式
-# 用法：在发布产物目录下运行 powershell -ExecutionPolicy Bypass -File .\uninstall-shortcut.ps1
+# Remove the KioskWin startup shortcut from the current user's Startup folder.
+# Usage: Run powershell -ExecutionPolicy Bypass -File .\uninstall-shortcut.ps1
+# from the publish output directory.
 $ErrorActionPreference = 'Stop'
 
 $startup = [Environment]::GetFolderPath('Startup')
@@ -7,7 +8,7 @@ $shortcutPath = Join-Path $startup 'KioskWin.lnk'
 
 if (Test-Path $shortcutPath) {
     Remove-Item -LiteralPath $shortcutPath -Force
-    Write-Host "已删除开机自启快捷方式：$shortcutPath"
+    Write-Host "Removed startup shortcut: $shortcutPath"
 } else {
-    Write-Host "未找到开机自启快捷方式：$shortcutPath"
+    Write-Host "Startup shortcut not found: $shortcutPath"
 }

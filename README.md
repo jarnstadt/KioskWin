@@ -9,8 +9,8 @@ KioskWin is a Windows kiosk shell for opening a configured web page in a full-sc
 - Optional automatic page fitting with hidden scrollbars via `AutoFitToWindow`.
 - Password-protected admin dialog for exit, reload, DevTools, and temporary unlock mode.
 - Global admin escape hotkey, defaulting to `Ctrl+Shift+Alt+Q`.
-- Direct unlock with the configured admin escape hotkey when no admin password hash and salt are configured.
-- Touch access to maintenance by holding the dark square in the top-right corner for three seconds.
+- Direct unlock with the configured admin escape hotkey when no admin password is configured.
+- Touch access to maintenance by holding the invisible top-right corner for three seconds.
 - Startup shortcut install and uninstall PowerShell scripts included in publish output.
 
 ## Requirements
@@ -40,9 +40,9 @@ Set `AdminPassword` in the deployed `appsettings.json`. It is stored as plain te
 
 If `AdminPassword` is empty or whitespace, pressing the configured `AdminKeyCombination` directly switches the kiosk into temporary unlocked mode. The default escape hotkey is `Ctrl+Shift+Alt+Q`.
 
-On a touch screen, hold the dark square in the top-right corner for three seconds. With a configured password, the admin dialog and Windows On-Screen Keyboard open; verify the password and choose **Exit**. Without a configured password, the gesture unlocks the window and allows it to be closed. This means anyone with physical access can exit an unconfigured kiosk. Configure `AdminPassword` to require authentication. The on-screen keyboard may remain open after the dialog closes.
+On a touch screen, hold the top-right 48-by-48-pixel corner for three seconds. The touch target is invisible but intercepts touches in that area. With a configured password, the admin dialog requests the built-in Windows touch keyboard; verify the password and choose **Exit**. Windows may decline the request or choose not to show the keyboard depending on its settings and attached hardware. Without a configured password, the gesture unlocks the window and allows it to be closed. This means anyone with physical access can exit an unconfigured kiosk. Configure `AdminPassword` to require authentication.
 
-Verify touch behavior on the target Windows device: releasing early or moving outside the square must cancel the gesture, and the gesture must also work while an error overlay is displayed. When a password is configured, check that the on-screen keyboard is accessible and an incorrect password cannot enable admin actions.
+Verify touch behavior on the target Windows device: the corner must remain transparent over changing page content and error overlays; releasing early or moving outside it must cancel the gesture. When a password is configured, check that the Windows touch keyboard is accessible and an incorrect password cannot enable admin actions.
 
 ## Build and Test
 

@@ -4,8 +4,7 @@ using KioskWin.Core;
 using System.Drawing;
 using System.Windows.Forms;
 using KioskWin.Forms;
-using System.ComponentModel;
-using System.Diagnostics;
+using System.Runtime.InteropServices;
 
 namespace KioskWin.Forms;
 
@@ -269,10 +268,10 @@ public sealed class MainForm : Form
             return;
         }
 
-        ShowAdminDialog(useOnScreenKeyboard: true);
+        ShowAdminDialog(useTouchKeyboard: true);
     }
 
-    private void ShowAdminDialog(bool useOnScreenKeyboard = false)
+    private void ShowAdminDialog(bool useTouchKeyboard = false)
     {
         if (_showingAdminDialog)
             return;
@@ -281,8 +280,8 @@ public sealed class MainForm : Form
         try
         {
             using var dlg = new AdminDialog(_config, message => _logger.Log(message));
-            if (useOnScreenKeyboard)
-                dlg.Shown += (_, _) => ShowOnScreenKeyboard(dlg);
+            if (useTouchKeyboard)
+                dlg.Shown += (_, _) => dlg.BeginInvoke(() => ShowTouchKeyboard(dlg));
             dlg.TopMost = TopMost;
             if (dlg.ShowDialog(this) != DialogResult.OK) return;
 
@@ -313,18 +312,21 @@ public sealed class MainForm : Form
         }
     }
 
-    private void ShowOnScreenKeyboard(Form owner)
+    private void ShowTouchKeyboard(Form owner)
     {
+        if (owner.IsDisposed || !owner.IsHandleCreated)
+            return;
+
         try
         {
-            var keyboardPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "osk.exe");
-            if (Process.Start(new ProcessStartInfo(keyboardPath) { UseShellExecute = true }) == null)
-                throw new InvalidOperationException("Windows did not start the On-Screen Keyboard.");
+            if (!TouchKeyboard.TryShow(owner.Handle))
+                throw new InvalidOperationException("Windows rejected the touch keyboard request.");
         }
-        catch (Exception ex) when (ex is Win32Exception or InvalidOperationException or IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is COMException or InvalidOperationException or InvalidCastException or
+            NotSupportedException or DllNotFoundException or EntryPointNotFoundException)
         {
-            _logger.Log($"[admin] failed to start On-Screen Keyboard: {ex}");
-            MessageBox.Show(owner, "Could not open the Windows On-Screen Keyboard. Use another keyboard to enter the password.",
+            _logger.Log($"[admin] failed to show Windows touch keyboard: {ex}");
+            MessageBox.Show(owner, "Could not open the Windows touch keyboard. Check Windows touch keyboard settings or use another keyboard.",
                 "KioskWin", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }

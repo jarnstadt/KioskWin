@@ -8,6 +8,7 @@ namespace KioskWin.Forms;
 internal sealed class AdminTouchTarget : Control
 {
     private const int WmTouch = 0x0240;
+    private const int WsExTransparent = 0x00000020;
     private const uint TouchMove = 0x0001;
     private const uint TouchDown = 0x0002;
     private const uint TouchUp = 0x0004;
@@ -21,13 +22,30 @@ internal sealed class AdminTouchTarget : Control
     {
         _logFailure = logFailure;
         Size = new Size(48, 48);
-        BackColor = Color.FromArgb(30, 30, 30);
         Anchor = AnchorStyles.Top | AnchorStyles.Right;
         _holdTimer.Tick += (_, _) =>
         {
             CancelHold();
             HoldCompleted?.Invoke(this, EventArgs.Empty);
         };
+    }
+
+    protected override CreateParams CreateParams
+    {
+        get
+        {
+            var parameters = base.CreateParams;
+            parameters.ExStyle |= WsExTransparent;
+            return parameters;
+        }
+    }
+
+    protected override void OnPaintBackground(PaintEventArgs e)
+    {
+    }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
     }
 
     protected override void OnHandleCreated(EventArgs e)
